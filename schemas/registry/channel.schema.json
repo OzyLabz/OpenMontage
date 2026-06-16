@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/registry/channel",
+  "title": "Channel Entry",
+  "description": "Faceless-mode channel entry. Locks style (playbook), voice, and format (media profile) for the existing pipeline. Does NOT name a model or pin a gateway — the existing scorer chooses generation models (switch OFF). `style_prompt` and `niche` are conditioning-only (prompt text); request matching uses `match.keywords` only.",
+  "type": "object",
+  "required": ["id", "match", "pipeline", "playbook", "voice", "media_profile"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Canonical channel id (kebab-case).",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "match": {
+      "type": "object",
+      "description": "Request-matching config. Matching uses keywords only (dead-simple for this build).",
+      "required": ["keywords"],
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "description": "Lowercase phrases; a request matches this channel if it contains any of them.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "string",
+      "description": "Pipeline manifest name (without .yaml) in pipeline_defs/."
+    },
+    "playbook": {
+      "type": "string",
+      "description": "Style playbook name (without .yaml) in styles/."
+    },
+    "voice": {
+      "type": "object",
+      "required": ["provider", "id"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "TTS provider name (e.g. google, elevenlabs)."
+        },
+        "id": {
+          "type": "string",
+          "description": "Provider-specific voice id passed as the TTS `voice` input."
+        }
+      },
+      "additionalProperties": false
+    },
+    "media_profile": {
+      "type": "string",
+      "description": "Media profile key in lib/media_profiles.py (e.g. youtube_landscape)."
+    },
+    "style_prompt": {
+      "type": "string",
+      "description": "Conditioning-only. Concatenated into generation prompts; never read in a conditional or routing decision."
+    },
+    "niche": {
+      "type": "string",
+      "description": "Conditioning-only descriptor. Flavor text for prompts; never branched on. NOT used for matching."
+    }
+  },
+  "additionalProperties": false
+}

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import logging
 import pkgutil
 from types import ModuleType
 from typing import Any, Optional
@@ -114,7 +115,16 @@ class ToolRegistry:
         for module_info in pkgutil.walk_packages(package_paths, f"{package.__name__}."):
             if module_info.name.endswith(".base_tool") or module_info.name.endswith(".tool_registry"):
                 continue
-            module = importlib.import_module(module_info.name)
+            try:
+                module = importlib.import_module(module_info.name)
+            except Exception as e:
+                # One un-importable tool (e.g. an unmet optional dependency) must
+                # not crash discovery of every other tool. Log and skip.
+                logging.getLogger(__name__).warning(
+                    "tool discovery: skipping %s (import failed: %s)",
+                    module_info.name, e,
+                )
+                continue
             discovered.extend(self.register_module(module))
 
         self._discovered_packages.add(package_name)

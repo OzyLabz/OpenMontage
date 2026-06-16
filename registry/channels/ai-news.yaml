@@ -1,0 +1,21 @@
+# Channel entry (faceless mode) — AI-news.
+#
+# A channel locks STYLE + VOICE + FORMAT for the existing pipeline. It does NOT
+# name a model or pin a video gateway — the existing scorer still chooses the
+# generation models (switch OFF). `style_prompt` and `niche` are CONDITIONING
+# ONLY: they are concatenated into prompt text and never read in a conditional,
+# selector input, or routing decision. Request matching uses `match.keywords`
+# only.
+id: ai-news
+match:
+  keywords: ["ai-news", "ai news", "AI news channel"]
+pipeline: animated-explainer          # pipeline_defs/animated-explainer.yaml
+playbook: clean-professional          # styles/clean-professional.yaml
+voice:
+  provider: google                    # tools/audio/google_tts.py
+  id: en-US-Chirp3-HD-Orus            # real default voice (male, rich/cinematic)
+media_profile: youtube_landscape      # lib/media_profiles.py (1920x1080, 16:9)
+style_prompt: >
+  Authoritative, fast-paced AI news brief. Clean corporate-tech look,
+  confident neutral tone, concise on-screen stat callouts.
+niche: artificial-intelligence-news

@@ -46,13 +46,28 @@ This is a first-class workflow in OpenMontage.
 
 If a model misses this distinction, it will often fall back to plain search + guesswork. That is incorrect for OpenMontage.
 
+## Channel / Persona Entry Point
+
+Before pipeline selection, check whether the request names a registry entry (a faceless **channel** or — later — an influencer **persona**). This is a first-class pre-pipeline step, structurally a sibling of the Reference Video Entry Point above.
+
+### Required behavior
+
+1. **Match:** call `lib/registry_loader.match_channel(request)`. Matching uses the entry's `match.keywords` only.
+2. **If a channel matches:** load it (`load_channel`) and **lock**, for the whole job:
+   - `playbook` → load via `styles/playbook_loader.load_playbook(...)` and use as the active style playbook.
+   - `voice` → pass `voice.id` as the TTS `voice` input (and `voice.provider` as `preferred_provider`) at the narration stage.
+   - `media_profile` → resolve via `lib/media_profiles.get_profile(...)` and use as the compose/render output profile.
+   - `style_prompt` and `niche` → **conditioning only**: concatenate into research/script/scene/image prompt text. NEVER branch on them or use them as a selector/routing input.
+   Then proceed into Rule Zero using the entry's declared `pipeline`. **Switch stays OFF** — the channel locks style/voice/format only; it does NOT name a model or pin a gateway, so the existing scorer still chooses generation models.
+3. **If no entry matches:** proceed to Rule Zero exactly as today — no channel, default behavior, nothing changed.
+
 ## Rule Zero — All Production Goes Through a Pipeline
 
 **Every video production request MUST go through the pipeline system. No exceptions.**
 
 When the user asks to make, create, produce, or generate any video content — a trailer, explainer, clip, animation, or any other video — the agent must:
 
-1. **Identify the pipeline.** Match the request to one of the pipelines in `pipeline_defs/`. If unclear, ask the user.
+1. **Identify the pipeline.** First run the Channel / Persona Entry Point check above; if a channel matched, use its declared `pipeline`. Otherwise match the request to one of the pipelines in `pipeline_defs/`. If unclear, ask the user.
 2. **Read the pipeline manifest.** `pipeline_defs/<pipeline>.yaml` — know the stages, tools, and quality gates.
 3. **Run preflight.** Discover available tools via the registry. Present the capability menu.
 4. **Execute stage by stage.** For EACH stage, read the stage director skill (`skills/pipelines/<pipeline>/<stage>-director.md`) BEFORE doing any work in that stage.
