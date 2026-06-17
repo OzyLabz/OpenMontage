@@ -67,3 +67,19 @@ def resolve(model: Optional[str], capability: str) -> Optional[dict[str, Any]]:
     if not model:
         return default_for_capability(capability)
     return get_model(model) or get_by_kie_id(model)
+
+
+def by_category(tag: str) -> list[dict[str, Any]]:
+    """Return all models tagged with a navigation category (e.g. 't2i',
+    'reference-to-video', 'motion-control'). Lets the agent find models by what
+    the operation DOES, across capabilities."""
+    return [m for m in _load()["models"] if tag in (m.get("category_tags") or [])]
+
+
+def categories() -> dict[str, list[str]]:
+    """Map each category tag -> canonical_ids that serve it (for menus/preflight)."""
+    out: dict[str, list[str]] = {}
+    for m in _load()["models"]:
+        for tag in m.get("category_tags") or []:
+            out.setdefault(tag, []).append(m["canonical_id"])
+    return out

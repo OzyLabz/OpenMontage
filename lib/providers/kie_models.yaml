@@ -1,28 +1,153 @@
 # Gateway model-identity map (slim System A) — kie single gateway.
-# VIDEO ONLY for the first kie run (image model row added after video is proven).
-# Reference-field arities and input fields are CONFIRMED from each model's
-# docs.kie.ai page — do not guess. Add a new row only after reading its doc.
+# PHASE 1: confirmed slash-id models only (ride the existing kie_client via
+# jobs/createTask — no new client code). Reference-field names + arities are
+# transcribed from each model's docs.kie.ai page (see `source` + KIE_MODEL_CATALOG.md).
+# Dedicated-endpoint models (Veo/Runway) and unconfirmed-id models (Sora/Wan/Topaz)
+# are NOT here yet (Phases 2/3). Lip-sync is Phase 4 (blocked on audio).
 version: "1.0"
 models:
+
+  # ---------------- IMAGE ----------------
+
+  - canonical_id: nano-banana-pro
+    gateway: kie
+    kie_model: "nano-banana-pro"               # CONFIRMED: docs.kie.ai/market/google/pro-image-to-image
+    capability: image_generation
+    operations: [text_to_image, image_edit, identity_edit]
+    category_tags: [t2i, i2i, identity-edit]
+    input_fields: [prompt, image_input, aspect_ratio, resolution, output_format]
+    reference_fields:
+      image_input: 8                           # array of reference/input images, max 8 (Gemini 3 Pro Image)
+    params:
+      prompt: "max 10000 chars"
+      resolution: "1K | 2K | 4K"
+      aspect_ratio: "1:1, 2:3, 3:2, 4:3, 9:16, 16:9, ..."
+      output_format: "png | jpg"
+    est_cost_usd: null
+    est_cost_credits: null     # TBD until measured
+    cost_note: "TBD until measured"
+    source: "https://docs.kie.ai/market/google/pro-image-to-image"
+
+  - canonical_id: nano-banana-2
+    gateway: kie
+    kie_model: "nano-banana-2"                 # CONFIRMED: docs.kie.ai/market/google/nanobanana2
+    capability: image_generation
+    operations: [text_to_image, image_edit, identity_edit]
+    category_tags: [t2i, i2i, identity-edit]
+    input_fields: [prompt, image_input, aspect_ratio, resolution, output_format]
+    reference_fields:
+      image_input: 14                          # array of reference/input images, max 14 (most refs of any image model)
+    params:
+      prompt: "max 20000 chars"
+      resolution: "1K | 2K | 4K (default 1K)"
+      aspect_ratio: "1:1, 2:3, 3:2, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, auto, ..."
+      output_format: "png | jpg (default jpg)"
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured"
+    source: "https://docs.kie.ai/market/google/nanobanana2"
+
+  - canonical_id: seedream-4.5
+    gateway: kie
+    kie_model: "seedream/4.5-text-to-image"    # CONFIRMED: docs.kie.ai/market/seedream/4-5-text-to-image
+    capability: image_generation
+    operations: [text_to_image]
+    category_tags: [t2i]
+    input_fields: [prompt, aspect_ratio, quality, nsfw_checker]
+    reference_fields: {}                        # text-to-image only — no reference/input images
+    params:
+      prompt: "max 3000 chars"
+      aspect_ratio: "1:1, 4:3, 3:4, 16:9, 9:16, 2:3, 3:2, 21:9 (required)"
+      quality: "basic = 2K | high = 4K"
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured"
+    source: "https://docs.kie.ai/market/seedream/4-5-text-to-image"
+
+  - canonical_id: gpt-image-2
+    gateway: kie
+    kie_model: "gpt-image-2-text-to-image"     # CONFIRMED: docs.kie.ai/market/gpt/gpt-image-2-text-to-image
+    capability: image_generation
+    operations: [text_to_image]
+    category_tags: [t2i]
+    input_fields: [prompt, aspect_ratio, resolution]
+    reference_fields: {}                        # text-to-image variant — no reference images (edit sibling is Phase 3)
+    params:
+      prompt: "max 20000 chars"
+      resolution: "1K | 2K | 4K"
+      aspect_ratio: "auto, 1:1, 16:9, ..."
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Edit sibling gpt-image-2-image-to-image deferred to Phase 3 (verify ref fields)."
+    source: "https://docs.kie.ai/market/gpt/gpt-image-2-text-to-image"
+
+  - canonical_id: grok-image
+    gateway: kie
+    kie_model: "grok-imagine/text-to-image"    # CONFIRMED: docs.kie.ai/market/grok-imagine/text-to-image
+    capability: image_generation
+    operations: [text_to_image]
+    category_tags: [t2i]
+    default_for_capability: true               # cheapest + proven (first paid kie image); keep as image default
+    input_fields: [prompt, aspect_ratio, enable_pro, nsfw_checker]
+    reference_fields: {}                        # text-to-image only — no reference images
+    params:
+      prompt: "max 5000 chars"
+      aspect_ratio: "2:3 | 3:2 | 1:1 | 16:9 | 9:16 (default 1:1)"
+      enable_pro: "boolean — true = quality mode, false = speed mode"
+      nsfw_checker: "boolean (default false)"
+    est_cost_usd: null
+    est_cost_credits: 4        # MEASURED (16:9, enable_pro off -> returned 6 variants, 1280x720, ~30s)
+    cost_note: "empirical ~4 credits/request; returns multiple variations"
+    source: "https://docs.kie.ai/market/grok-imagine/text-to-image"
+
+  - canonical_id: ideogram-character-edit
+    gateway: kie
+    kie_model: "ideogram/character-edit"       # CONFIRMED: docs.kie.ai/market/ideogram/character-edit
+    capability: image_generation
+    operations: [image_edit, identity_edit]
+    category_tags: [i2i, identity-edit]
+    input_fields: [prompt, image_url, mask_url, reference_image_urls, rendering_speed, style, num_images, seed]
+    reference_fields:
+      reference_image_urls: 1                  # CONFIRMED: array accepts 1 only (rest ignored)
+    params:
+      prompt: "max 5000 chars"
+      image_url: "base image to edit (scalar)"
+      mask_url: "inpaint mask (scalar)"
+      rendering_speed: "TURBO | BALANCED | QUALITY"
+      style: "AUTO | REALISTIC | FICTION"
+      num_images: "1-4"
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Identity lock via 1 character ref; needs base image + mask."
+    source: "https://docs.kie.ai/market/ideogram/character-edit"
+
+  - canonical_id: recraft-crisp-upscale
+    gateway: kie
+    kie_model: "recraft/crisp-upscale"         # CONFIRMED: docs.kie.ai/market/recraft/crisp-upscale
+    capability: image_generation
+    operations: [upscale]
+    category_tags: [upscale]
+    input_fields: [image]                       # source image URL to upscale (no prompt)
+    reference_fields: {}                        # upscaler — input `image` is the source, not a reference
+    params:
+      image: "source image URL (jpeg/png/webp, <=10MB)"
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Note: no prompt; input field is `image`."
+    source: "https://docs.kie.ai/market/recraft/crisp-upscale"
+
+  # ---------------- VIDEO ----------------
+
   - canonical_id: seedance-2.0
     gateway: kie
-    kie_model: "bytedance/seedance-2"          # exact slash-id in createTask `model`
+    kie_model: "bytedance/seedance-2"          # CONFIRMED: docs.kie.ai/market/bytedance/seedance-2
     capability: video_generation
     operations: [text_to_video, image_to_video, reference_to_video]
-    default_for_capability: true
-    input_fields:
-      - prompt
-      - first_frame_url
-      - last_frame_url
-      - reference_image_urls
-      - reference_video_urls
-      - reference_audio_urls
-      - generate_audio
-      - resolution
-      - aspect_ratio
-      - duration
-    reference_fields:        # name -> max arity (character-lock anchors; used later for personas)
-      reference_image_urls: 9
+    category_tags: [t2v, i2v, reference-to-video]
+    default_for_capability: true               # best identity-lock + proven (first paid kie video); video default
+    input_fields: [prompt, first_frame_url, last_frame_url, reference_image_urls, reference_video_urls, reference_audio_urls, generate_audio, resolution, aspect_ratio, duration]
+    reference_fields:
+      reference_image_urls: 9                  # CONFIRMED 9 / 3 / 3
       reference_video_urls: 3
       reference_audio_urls: 3
     params:
@@ -30,27 +155,47 @@ models:
       aspect_ratio: "1:1 | 4:3 | 3:4 | 16:9 | 9:16 | 21:9 | adaptive"
       duration: "4-15 seconds (default 5)"
       generate_audio: "boolean (default true)"
-    est_cost_usd: null       # USD varies by credit-package price; credits are the real meter
-    est_cost_credits: 76     # MEASURED on first paid run (480p / 4s / audio off)
-    cost_note: "empirical 76 credits for 480p/4s; the published 480p=30-credit figure was stale (likely Seedance 1.0)"
+    est_cost_usd: null
+    est_cost_credits: 76       # MEASURED (480p / 4s / audio off)
+    cost_note: "empirical 76 credits for 480p/4s; published 480p=30 figure was stale (likely Seedance 1.0)"
     source: "https://docs.kie.ai/market/bytedance/seedance-2"
 
-  - canonical_id: grok-image
+  - canonical_id: kling-3.0
     gateway: kie
-    kie_model: "grok-imagine/text-to-image"   # CONFIRMED: docs.kie.ai/market/grok-imagine/text-to-image
-    capability: image_generation
-    operations: [text_to_image]
-    default_for_capability: true
-    input_fields:                # confirmed from the model doc (real JSON example)
-      - prompt                   # required, <=5000 chars
-      - aspect_ratio             # 2:3 | 3:2 | 1:1 | 16:9 | 9:16 (default 1:1)
-      - enable_pro               # bool: true=quality, false=speed
-      - nsfw_checker             # bool (default false)
+    kie_model: "kling-3.0/video"               # CONFIRMED: docs.kie.ai/market/kling/kling-3-0
+    capability: video_generation
+    operations: [text_to_video, image_to_video, reference_to_video]
+    category_tags: [t2v, i2v, reference-to-video]
+    input_fields: [prompt, image_urls, kling_elements, sound, duration, aspect_ratio, mode, multi_shots, multi_prompt]
+    reference_fields:
+      image_urls: 2                            # 1-2 first/last frame images (i2v)
+      kling_elements: 3                        # up to 3 element OBJECTS; each element's element_input_urls holds 2-4 images (capture nested shape when wiring generation)
     params:
-      aspect_ratio: "2:3 | 3:2 | 1:1 | 16:9 | 9:16 (default 1:1)"
-      enable_pro: "boolean — true = quality mode, false = speed mode"
-      nsfw_checker: "boolean (default false)"
+      mode: "std | pro | 4K"
+      duration: "3-15 seconds"
+      aspect_ratio: "16:9 | 9:16 | 1:1"
+      sound: "boolean (native audio)"
     est_cost_usd: null
-    est_cost_credits: null   # confirm at the paid image test via /chat/credit delta
-    cost_note: "credit-metered; not yet measured"
-    source: "https://docs.kie.ai/market/grok-imagine/text-to-image"
+    est_cost_credits: null
+    cost_note: "TBD until measured. image_urls = first/last frame (i2v); kling_elements = up to 3 identity/element refs."
+    source: "https://docs.kie.ai/market/kling/kling-3-0"
+
+  - canonical_id: kling-2.6-motion-control
+    gateway: kie
+    kie_model: "kling-2.6/motion-control"      # CONFIRMED: docs.kie.ai/market/kling/motion-control
+    capability: video_generation
+    operations: [motion_control]
+    category_tags: [motion-control]
+    input_fields: [prompt, input_urls, video_urls, character_orientation, mode]
+    reference_fields:
+      input_urls: 1                            # 1 character photo (head/shoulders/torso visible)
+      video_urls: 1                            # 1 driving motion video (3-30s)
+    params:
+      prompt: "max 2500 chars"
+      character_orientation: "image | video"
+      mode: "720p | 1080p"
+      duration: "3-30 seconds (from the motion video)"
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Animate a static character (input_urls) from a driving video (video_urls)."
+    source: "https://docs.kie.ai/market/kling/motion-control"

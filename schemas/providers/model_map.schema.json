@@ -19,6 +19,11 @@
           "kie_model": { "type": "string", "description": "Exact slash-id used in createTask `model`, e.g. bytedance/seedance-2" },
           "capability": { "type": "string", "enum": ["image_generation", "video_generation"] },
           "operations": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "category_tags": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["t2i", "i2i", "identity-edit", "upscale", "t2v", "i2v", "reference-to-video", "motion-control", "v2v", "lip-sync"] },
+            "description": "Navigation tags — every category this model serves; lets the agent find a model by category. Shared models carry multiple tags (one model, many categories)."
+          },
           "default_for_capability": { "type": "boolean" },
           "input_fields": {
             "type": "array",
