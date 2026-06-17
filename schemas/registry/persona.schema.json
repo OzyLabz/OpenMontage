@@ -64,7 +64,7 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "Local path relative to the persona asset dir (e.g. refs/mia_face.png)."
+            "description": "Local path relative to the persona asset dir (e.g. refs/face.png)."
           },
           "url": {
             "type": "string",
@@ -113,6 +113,15 @@
         "id": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "description": "Catalog status (data-driven; the persona catalog reads this, not a hand-maintained list). 'proven' = character-lock paid-verified (still and/or clip); 'draft' = added but not yet verified. Absent is treated as 'draft'.",
+      "enum": ["proven", "draft"]
+    },
+    "known_limits": {
+      "type": "string",
+      "description": "Free-text record of this persona's verified boundaries (e.g. motion regimes tested, wardrobe behavior). Documentation only — never branched on."
     }
   },
   "additionalProperties": false

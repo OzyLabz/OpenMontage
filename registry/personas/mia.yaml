@@ -13,6 +13,13 @@
 # Adding a persona = drop registry/personas/<id>.yaml + its refs/ dir; it is
 # auto-discovered exactly like a channel.
 id: mia
+status: proven                        # still (new-scene) + clip (in-motion) character-lock paid-proven
+known_limits: >
+  In-motion identity proven for SUBTLE motion only (2s slow push-in, neutral->smile);
+  large-motion / new-environment / longer clips are un-stress-tested. Wardrobe is
+  sticky (image_input/reference carry the ref's clothing) — use a role:outfit ref or
+  an emphatic prompt override for per-scene wardrobe. Refs are kie tempfile URLs
+  (expire ~days-weeks); durable local refs await upload_image_kie (deferred).
 pick_me_when: >
   A warm, candid late-20s lifestyle creator for vertical reels and stills —
   natural daylight, approachable energy.

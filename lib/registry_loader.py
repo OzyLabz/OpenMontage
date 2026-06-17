@@ -187,3 +187,24 @@ def match_persona(
         if any(kw.lower() in text for kw in keywords):
             return entry
     return None
+
+
+def persona_catalog(personas_dir: Optional[Path] = None) -> list[dict[str, Any]]:
+    """Browsable persona roster for runtime catalog use (mirrors how the agent
+    reads the model catalog). One dict per persona: id, pick_me_when, keywords,
+    status, models. Reads the data sheets directly so it never drifts from the
+    registry. Missing `status` is reported as 'draft'.
+    """
+    out: list[dict[str, Any]] = []
+    for name in list_personas(personas_dir):
+        entry = load_persona(name, personas_dir)
+        out.append(
+            {
+                "id": entry["id"],
+                "pick_me_when": " ".join((entry.get("pick_me_when") or "").split()),
+                "keywords": entry.get("match", {}).get("keywords", []),
+                "status": entry.get("status", "draft"),
+                "models": entry.get("models", {}),
+            }
+        )
+    return out
