@@ -464,8 +464,8 @@ models:
       seed:            {type: integer, required: false, values: "0-2147483647"}
       nsfw_checker:    {type: boolean, required: false, default: "false", values: "true,false"}
     est_cost_usd: null
-    est_cost_credits: null
-    cost_note: "TBD until measured. Wan t2v. Cost levers: resolution (def 720p), duration. NOTE: wire aspect key is `ratio` (aliased from aspect_ratio)."
+    est_cost_credits: 32       # MEASURED (720p / 2s) via /chat/credit delta
+    cost_note: "32 credits MEASURED for 720p/2s (wall-clock ~185s; output 1280x720 + audio). Cost levers: resolution (def 720p), duration. Wire aspect key is `ratio` (aliased from aspect_ratio) — confirmed live."
     source: "https://docs.kie.ai/market/wan/2-7-text-to-video"
 
   - canonical_id: wan-2.7-image-to-video
@@ -525,8 +525,8 @@ models:
       seed:            {type: integer, required: false, values: "0-2147483647"}
       nsfw_checker:    {type: boolean, required: false, default: "false", values: "true,false"}
     est_cost_usd: null
-    est_cost_credits: null
-    cost_note: "TBD until measured. Wan reference-to-video (3rd ref-to-video option after seedance/kling). SLUG TRAP: real id wan/2-7-r2v. VERIFY-AT-BUILD ARITY: reference_image + reference_video share a COMBINED cap of 5 TOTAL (the per-field reference_fields caps of 5 are upper bounds only; the API rejects >5 combined — the tool does NOT yet enforce the combined cap). duration max 10."
+    est_cost_credits: 32       # MEASURED (720p / 2s, 1 reference_image) via /chat/credit delta
+    cost_note: "32 credits MEASURED for 720p/2s with 1 reference_image (wall-clock ~218s; output 1280x720 + audio). Reference conditioning CONFIRMED live (a mountain-landscape ref image drove the output scene). Wan reference-to-video (3rd ref-to-video option after seedance/kling). SLUG TRAP: real id wan/2-7-r2v. VERIFY-AT-BUILD ARITY: reference_image + reference_video share a COMBINED cap of 5 TOTAL (per-field caps of 5 are upper bounds; API rejects >5 combined — the tool does NOT yet enforce the combined cap). duration max 10."
     source: "https://docs.kie.ai/market/wan/2-7-r2v"
 
   - canonical_id: wan-2.7-videoedit
