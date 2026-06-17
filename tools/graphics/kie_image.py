@@ -84,6 +84,19 @@ class KieImage(BaseTool):
                 "description": "grok: true = quality mode, false = speed mode.",
             },
             "nsfw_checker": {"type": "boolean", "default": False},
+            # --- Model-specific image params (forwarded per the model_map input_fields) ---
+            "resolution": {"type": "string", "description": "Nano Banana / GPT-Image-2: 1K | 2K | 4K."},
+            "output_format": {"type": "string", "description": "Nano Banana: png | jpg."},
+            "quality": {"type": "string", "description": "Seedream: basic (2K) | high (4K)."},
+            "image_input": {"type": "array", "items": {"type": "string"}, "description": "Nano Banana reference/input images (<=14 NB2 / <=8 NB Pro)."},
+            "image": {"type": "string", "description": "Recraft upscale: source image URL."},
+            "image_url": {"type": "string", "description": "Ideogram: base image to edit."},
+            "mask_url": {"type": "string", "description": "Ideogram: inpaint mask."},
+            "reference_image_urls": {"type": "array", "items": {"type": "string"}, "description": "Ideogram character reference (<=1)."},
+            "rendering_speed": {"type": "string", "description": "Ideogram: TURBO | BALANCED | QUALITY."},
+            "style": {"type": "string", "description": "Ideogram: AUTO | REALISTIC | FICTION."},
+            "num_images": {"type": "integer", "description": "Ideogram: 1-4."},
+            "seed": {"type": "integer"},
             "output_path": {"type": "string"},
         },
     }
@@ -134,16 +147,33 @@ class KieImage(BaseTool):
             )
 
         kie_model = row["kie_model"]
-        allowed = set(row.get("input_fields") or [])
+        allowed = list(row.get("input_fields") or [])
+        ref_caps: dict[str, int] = row.get("reference_fields") or {}
 
-        # Build the kie `input` from declared fields only.
-        model_input: dict[str, Any] = {"prompt": inputs["prompt"]}
-        for key in ("aspect_ratio", "enable_pro", "nsfw_checker"):
-            if key in inputs and (not allowed or key in allowed):
-                model_input[key] = inputs[key]
+        # Build the kie `input` GENERICALLY from the model's declared input_fields
+        # (the model_map is the source of truth). Scalars forwarded as-is;
+        # reference arrays go through the arity-capped path. Only declared params sent.
+        model_input: dict[str, Any] = {}
+        for key in allowed:
+            if key in ref_caps:
+                continue
+            val = inputs.get(key)
+            if val is not None:
+                model_input[key] = val
+        for field, cap in ref_caps.items():
+            vals = inputs.get(field)
+            if vals:
+                if not isinstance(vals, list):
+                    vals = [vals]
+                if len(vals) > cap:
+                    return ToolResult(
+                        success=False,
+                        error=f"{kie_model} accepts at most {cap} {field}; got {len(vals)}",
+                    )
+                model_input[field] = list(vals)
 
         out_path = inputs.get(
-            "output_path", f"kie_{row['canonical_id'].replace('.', '_')}.png"
+            "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"
         )
 
         start = time.time()
@@ -176,7 +206,7 @@ class KieImage(BaseTool):
                 "task_id": record.get("taskId"),
                 "credits_consumed": record.get("creditsConsumed"),
                 "result_urls": urls,
-                "prompt": inputs["prompt"],
+                "prompt": inputs.get("prompt"),
                 "output": path,
                 "output_path": path,
                 "file_size_bytes": size,

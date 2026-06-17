@@ -89,6 +89,13 @@ class KieVideo(BaseTool):
             },
             "duration": {"type": ["integer", "string"], "description": "4-15 seconds (default 5)"},
             "generate_audio": {"type": "boolean", "default": True},
+            # --- Kling 3.0 video params (forwarded per the model_map input_fields) ---
+            "mode": {"type": "string", "description": "Kling quality/resolution mode: std | pro | 4K."},
+            "sound": {"type": "boolean", "description": "Kling native-audio toggle."},
+            "image_urls": {"type": "array", "items": {"type": "string"}, "description": "Kling first/last frame image URLs (1-2)."},
+            "kling_elements": {"type": "array", "items": {"type": "object"}, "description": "Kling element/identity references (<=3 element objects)."},
+            "multi_shots": {"type": "boolean"},
+            "multi_prompt": {"type": "array", "items": {"type": "string"}},
             # --- Reserved for persona character-lock (optional; unused on text_to_video) ---
             "first_frame_url": {"type": "string"},
             "last_frame_url": {"type": "string"},
@@ -161,21 +168,27 @@ class KieVideo(BaseTool):
             )
 
         kie_model = row["kie_model"]
-        allowed = set(row.get("input_fields") or [])
+        allowed = list(row.get("input_fields") or [])
         ref_caps: dict[str, int] = row.get("reference_fields") or {}
 
-        # Build the kie `input` from declared fields only (don't send keys the
-        # model doesn't accept). prompt is always required.
-        model_input: dict[str, Any] = {"prompt": inputs["prompt"]}
-        for key in ("resolution", "aspect_ratio", "duration", "generate_audio",
-                    "first_frame_url", "last_frame_url"):
-            if key in inputs and (not allowed or key in allowed):
-                model_input[key] = inputs[key]
+        # Build the kie `input` GENERICALLY from the model's declared input_fields
+        # (the model_map is the source of truth). Scalars are forwarded as-is;
+        # reference arrays go through the arity-capped path below. Only declared
+        # params are sent — undeclared keys are never forwarded.
+        model_input: dict[str, Any] = {}
+        for key in allowed:
+            if key in ref_caps:
+                continue
+            val = inputs.get(key)
+            if val is not None:
+                model_input[key] = val
 
         # Reference arrays with per-model arity enforcement (fail loud on overflow).
         for field, cap in ref_caps.items():
             vals = inputs.get(field)
             if vals:
+                if not isinstance(vals, list):
+                    vals = [vals]
                 if len(vals) > cap:
                     return ToolResult(
                         success=False,
@@ -184,7 +197,7 @@ class KieVideo(BaseTool):
                 model_input[field] = list(vals)
 
         out_path = inputs.get(
-            "output_path", f"kie_{row['canonical_id'].replace('.', '_')}.mp4"
+            "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"
         )
 
         start = time.time()
@@ -204,7 +217,7 @@ class KieVideo(BaseTool):
                 "task_id": record.get("taskId"),
                 "credits_consumed": record.get("creditsConsumed"),
                 "result_urls": urls,
-                "prompt": inputs["prompt"],
+                "prompt": inputs.get("prompt"),
                 "operation": inputs.get("operation", "text_to_video"),
                 "resolution": inputs.get("resolution", "720p"),
                 "aspect_ratio": inputs.get("aspect_ratio", "16:9"),

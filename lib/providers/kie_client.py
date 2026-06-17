@@ -149,15 +149,40 @@ def poll_task(
     raise KieError(f"kie task {task_id} timed out after {timeout}s")
 
 
+def _detect_extension(url: str, content: bytes) -> str:
+    """Pick the correct file extension. Content magic bytes WIN (kie sometimes
+    serves a JPEG from a .png URL); fall back to the URL's path extension."""
+    if content[:3] == b"\xff\xd8\xff":
+        return ".jpg"
+    if content[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if content[4:8] == b"ftyp":
+        return ".mp4"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return ".webp"
+    if content[:4] == b"OggS":
+        return ".ogg"
+    from urllib.parse import urlparse
+    import os as _os
+
+    ext = _os.path.splitext(urlparse(url).path)[1].lower()
+    return ext if ext in {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".gif", ".mp3", ".wav"} else ""
+
+
 def download(url: str, out_path: str | Path, *, timeout: int = 180) -> str:
-    """Download a result URL to out_path; return the path."""
+    """Download a result URL; name the file from the REAL content type
+    (e.g. JPEG -> .jpg), correcting the path extension. Returns the actual path."""
     import requests
 
-    p = Path(out_path)
-    p.parent.mkdir(parents=True, exist_ok=True)
     r = requests.get(url, timeout=timeout)
     r.raise_for_status()
-    p.write_bytes(r.content)
+    content = r.content
+    p = Path(out_path)
+    ext = _detect_extension(url, content)
+    if ext and p.suffix.lower() != ext:
+        p = p.with_suffix(ext)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(content)
     return str(p)
 
 

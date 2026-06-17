@@ -43,8 +43,8 @@ models:
       aspect_ratio: "1:1, 2:3, 3:2, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, auto, ..."
       output_format: "png | jpg (default jpg)"
     est_cost_usd: null
-    est_cost_credits: null
-    cost_note: "TBD until measured"
+    est_cost_credits: 8        # MEASURED — flat 8 credits at BOTH 1K and 2K (16:9)
+    cost_note: "8 credits — FLAT regardless of resolution (measured 8 at 2K=2752x1536 AND 1K=1376x768). resolution/output_format ARE now forwarded by kie_image; 1K is honored (1376x768, exactly half the 2K frame). Resolution controls dimensions/quality, not price."
     source: "https://docs.kie.ai/market/google/nanobanana2"
 
   - canonical_id: seedream-4.5
@@ -176,8 +176,8 @@ models:
       aspect_ratio: "16:9 | 9:16 | 1:1"
       sound: "boolean (native audio)"
     est_cost_usd: null
-    est_cost_credits: null
-    cost_note: "TBD until measured. image_urls = first/last frame (i2v); kling_elements = up to 3 identity/element refs."
+    est_cost_credits: 70       # MEASURED (std mode / 5s / sound off -> 720p, video-only)
+    cost_note: "70 credits for std/5s/no-audio (output 1280x720, no audio stream). mode/sound forward correctly through kie_video (verified on the wire). NOTE: kling-3.0 REQUIRES multi_shots — omitting it returns `422 multi_shots cannot be empty`; pass multi_shots=false for a single-shot clip. image_urls = first/last frame (i2v); kling_elements = identity/element refs."
     source: "https://docs.kie.ai/market/kling/kling-3-0"
 
   - canonical_id: kling-2.6-motion-control
