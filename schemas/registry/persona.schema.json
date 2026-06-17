@@ -52,7 +52,7 @@
     },
     "reference_images": {
       "type": "array",
-      "description": "Identity reference set (data sheet). Each entry has a path OR url plus role/use_for selection metadata. Capped at the chosen model's reference arity at wire time.",
+      "description": "Identity reference set (data sheet). Each entry has a path OR url plus role/use_for selection metadata. Capped at the chosen model's reference arity at wire time. WARDROBE: image_input/reference fields condition on the WHOLE reference (clothing included), so a reference's outfit carries into outputs. For per-scene outfits, either add a role:outfit reference (combined with identity-lock refs) or override wardrobe in the generation prompt — this is conditioning/selection metadata, never branch logic.",
       "minItems": 1,
       "items": {
         "type": "object",

@@ -23,17 +23,28 @@ models:
   still: nano-banana-2                # kie; identity stills via image_input (<=14 refs)
   video: seedance-2.0                 # kie; reference_to_video via reference_image_urls (<=9). wan-2.7-r2v also proven.
 reference_images:
-  # First light generates these (kie t2i, chained for consistency) and saves them
-  # here; the kie-hosted URLs are also used directly (no upload build needed).
-  - path: refs/mia_face.png
+  # Generated at first light (kie t2i nano-banana-2, chained on the face for
+  # identity consistency). `url` is what the models consume directly (no upload
+  # build needed); `path` is the local saved copy under this persona's refs/.
+  # WARDROBE: image_input/reference fields condition on the WHOLE reference,
+  # including clothing — so the navy sweater below carries into outputs. For a
+  # different per-scene outfit, either add a `role: outfit` reference here or
+  # override wardrobe in the generation prompt (conditioning/selection only).
+  # NOTE: tempfile URLs expire (~days-weeks). Durable refs ultimately need the
+  # local files + a local->URL upload step (upload_image_kie, deferred); until
+  # then regenerate or re-host if a url 404s.
+  - path: refs/mia_face.jpg
+    url: https://tempfile.aiquickdraw.com/vnp/2c0277b5f267ef3b16cc6720f3693b54_1781727335.jpeg
     role: face
     use_for: [identity-lock]
-    note: front-facing portrait, neutral expression, even daylight
+    note: front-facing portrait, neutral expression, even daylight, navy crew sweater
   - path: refs/mia_three_quarter.png
+    url: https://tempfile.aiquickdraw.com/p/74ac9e4a1c6e23038fad56aa661078ea_1_1781727522_8710.png
     role: three-quarter
     use_for: [identity-lock, scene]
     note: 3/4 angle, soft window light
-  - path: refs/mia_expression.png
+  - path: refs/mia_expression.jpg
+    url: https://tempfile.aiquickdraw.com/vnp/805d44e13711e79514572b9ce86da9a3_1781727614.jpeg
     role: expression
     use_for: [scene]
     note: candid smile
