@@ -109,6 +109,17 @@ class KieVideo(BaseTool):
                     "required": ["prompt", "duration"],
                 },
             },
+            # --- Veo 3.1 dedicated-endpoint params (camelCase wire names; routed by endpoint:veo) ---
+            "veo_model": {"type": "string", "enum": ["veo3", "veo3_fast", "veo3_lite"], "description": "Veo tier (aliased to the wire `model`; the tool's `model` input selects the row)."},
+            "imageUrls": {"type": "array", "items": {"type": "string"}, "description": "Veo: 1-3 image URLs (REFERENCE_2_VIDEO) or 1-2 first/last frame."},
+            "generationType": {"type": "string", "enum": ["TEXT_2_VIDEO", "FIRST_AND_LAST_FRAMES_2_VIDEO", "REFERENCE_2_VIDEO"], "description": "Veo: auto-determined from inputs if omitted."},
+            "watermark": {"type": "string", "description": "Veo: watermark text."},
+            "enableTranslation": {"type": "boolean", "description": "Veo: translate non-English prompts (default false)."},
+            # --- Runway Gen-4 Turbo dedicated-endpoint params (endpoint:runway) ---
+            "imageUrl": {"type": "string", "description": "Runway: i2v source image URL."},
+            "quality": {"type": "string", "enum": ["720p", "1080p"], "description": "Runway: 720p | 1080p (1080p blocks 10s)."},
+            "waterMark": {"type": "string", "description": "Runway/Aleph: watermark text."},
+            "callBackUrl": {"type": "string", "description": "Runway/Aleph: optional async callback (we poll synchronously)."},
             # --- Reserved for persona character-lock (optional; unused on text_to_video) ---
             "first_frame_url": {"type": "string"},
             "last_frame_url": {"type": "string"},
@@ -181,24 +192,28 @@ class KieVideo(BaseTool):
             )
 
         kie_model = row["kie_model"]
+        endpoint = row.get("endpoint")          # None = slash-id path; else dedicated adapter
         allowed = list(row.get("input_fields") or [])
         ref_caps: dict[str, int] = row.get("reference_fields") or {}
+        aliases: dict[str, str] = row.get("field_aliases") or {}
 
-        # Build the kie `input` GENERICALLY from the model's declared input_fields
-        # (the model_map is the source of truth). Scalars are forwarded as-is;
-        # reference arrays go through the arity-capped path below. Only declared
-        # params are sent — undeclared keys are never forwarded.
+        # Build the kie `input`/body GENERICALLY from the model's declared input_fields
+        # (the model_map is the source of truth — input_fields ARE the exact wire param
+        # names, camelCase included). Scalars are forwarded as-is; reference arrays go
+        # through the arity-capped path below. Only declared params are sent.
+        # `field_aliases` lets a wire field read from a different caller key when its
+        # API name collides with a reserved tool input (e.g. Veo body `model`).
         model_input: dict[str, Any] = {}
         for key in allowed:
             if key in ref_caps:
                 continue
-            val = inputs.get(key)
+            val = inputs.get(aliases.get(key, key))
             if val is not None:
                 model_input[key] = val
 
         # Reference arrays with per-model arity enforcement (fail loud on overflow).
         for field, cap in ref_caps.items():
-            vals = inputs.get(field)
+            vals = inputs.get(aliases.get(field, field))
             if vals:
                 if not isinstance(vals, list):
                     vals = [vals]
@@ -223,7 +238,12 @@ class KieVideo(BaseTool):
 
         start = time.time()
         try:
-            path, record, urls = kie_client.run_job(kie_model, model_input, out_path)
+            if endpoint:
+                # Dedicated endpoint (own submit/poll paths, flat camelCase body).
+                path, record, urls = kie_client.run_dedicated(endpoint, model_input, out_path)
+            else:
+                # Slash-id path (jobs/createTask) — unchanged for the 10 Phase-1 models.
+                path, record, urls = kie_client.run_job(kie_model, model_input, out_path)
         except Exception as e:
             return ToolResult(success=False, error=f"kie video generation failed: {e}")
 

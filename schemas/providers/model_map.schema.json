@@ -25,6 +25,16 @@
             "description": "Navigation tags — every category this model serves; lets the agent find a model by category. Shared models carry multiple tags (one model, many categories)."
           },
           "default_for_capability": { "type": "boolean" },
+          "endpoint": {
+            "type": "string",
+            "enum": ["veo", "runway", "aleph"],
+            "description": "If present, this model uses a DEDICATED kie endpoint (its own submit+poll paths, camelCase body) via the kie_client dedicated adapter, NOT jobs/createTask. Absent = slash-id path (default). For dedicated rows `kie_model` is a human label only — routing is by this field."
+          },
+          "field_aliases": {
+            "type": "object",
+            "description": "wire field name -> caller input key it reads from, for params whose API name collides with a reserved tool input (e.g. Veo's body `model` tier reads from `veo_model`, since the tool's `model` input selects the row). Absent/empty = no aliasing (default).",
+            "additionalProperties": { "type": "string" }
+          },
           "input_fields": {
             "type": "array",
             "items": { "type": "string" },

@@ -205,3 +205,184 @@ def run_job(
         raise KieError(f"kie task {task_id} succeeded but returned no resultUrls: {record}")
     path = download(urls[0], out_path)
     return path, record, urls
+
+
+# ---------------------------------------------------------------------------
+# Dedicated-endpoint adapter (ADDITIVE — the slash-id path above is untouched).
+#
+# Some kie models are NOT on jobs/createTask: they have their own submit + status
+# endpoints, with different status fields (int successFlag vs str state) and result
+# shapes (stringified-json array vs a plain dotted field). This registry captures
+# each endpoint's divergences so one generic adapter handles all of them. No model
+# knowledge here beyond the wire contract — the body is built by the calling tool
+# from lib/providers/model_map (input_fields = exact wire param names).
+# ---------------------------------------------------------------------------
+_DEDICATED: dict[str, dict[str, Any]] = {
+    "veo": {
+        "submit": "/api/v1/veo/generate",
+        "poll": "/api/v1/veo/record-info",
+        "status_field": "successFlag",       # int: 1=success, 2/3=fail, else pending
+        "status_kind": "int",
+        "success": {1},
+        "fail": {2, 3},
+        # MEASURED: result is a real list at data.response.resultUrls (NOT a stringified
+        # data.resultUrls — the quickstart doc was wrong; confirmed via a live veo3_lite run).
+        "result_field": "response.resultUrls",
+    },
+    "runway": {
+        "submit": "/api/v1/runway/generate",
+        "poll": "/api/v1/runway/record-detail",
+        "status_field": "state",              # str: success | fail | wait/queueing/generating
+        "status_kind": "str",
+        "success": {"success"},
+        "fail": {"fail"},
+        "result_field": "videoInfo.videoUrl",  # ⚠️ verify-at-build (from docs; not yet live-tested)
+    },
+    "aleph": {
+        # VERIFY-AT-BUILD: poll path + result field inferred from Gen-4 Turbo
+        # (the Aleph docs page did not confirm them). Resolve before Aleph ships.
+        "submit": "/api/v1/aleph/generate",
+        "poll": "/api/v1/aleph/record-detail",
+        "status_field": "state",
+        "status_kind": "str",
+        "success": {"success"},
+        "fail": {"fail"},
+        "result_field": "videoInfo.videoUrl",
+    },
+}
+
+
+def _dedicated_spec(endpoint: str) -> dict[str, Any]:
+    spec = _DEDICATED.get(endpoint)
+    if not spec:
+        raise KieError(f"unknown dedicated endpoint {endpoint!r} (known: {sorted(_DEDICATED)})")
+    return spec
+
+
+def _dig(record: dict[str, Any], dotted: str) -> Any:
+    """Walk a dotted path (e.g. 'videoInfo.videoUrl') through nested dicts."""
+    cur: Any = record
+    for part in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def create_task_dedicated(
+    endpoint: str,
+    body: dict[str, Any],
+    *,
+    key: Optional[str] = None,
+    timeout: int = 30,
+) -> str:
+    """Submit a job to a dedicated endpoint; return its taskId.
+
+    Unlike create_task, the body is FLAT (posted to the endpoint's own submit path)
+    — there is no {model, input} envelope. taskId is at data.taskId, same as jobs.
+    """
+    import requests
+
+    key = _resolve_key(key)
+    spec = _dedicated_spec(endpoint)
+    r = requests.post(
+        f"{BASE_URL}{spec['submit']}", headers=_headers(key), json=body, timeout=timeout
+    )
+    r.raise_for_status()
+    resp = r.json()
+    task_id = (resp.get("data") or {}).get("taskId")
+    if not task_id:
+        raise KieError(f"{endpoint} generate returned no taskId: {resp}")
+    return task_id
+
+
+def parse_result_dedicated(endpoint: str, record: dict[str, Any]) -> list[str]:
+    """Extract output URL(s) from a dedicated-endpoint success record.
+
+    Robust to the shapes kie actually returns at the spec's (possibly nested) dotted
+    `result_field`: a real list (Veo: data.response.resultUrls), a single plain URL
+    string (Runway: data.videoInfo.videoUrl), or a json-stringified array. [] if absent.
+    """
+    spec = _dedicated_spec(endpoint)
+    raw = _dig(record, spec["result_field"])
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [u for u in raw if u]
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return [raw]                      # a bare URL string
+        if isinstance(parsed, list):
+            return [u for u in parsed if u]
+        if isinstance(parsed, str):
+            return [parsed]
+    return []
+
+
+def poll_dedicated(
+    endpoint: str,
+    task_id: str,
+    *,
+    key: Optional[str] = None,
+    timeout: int = 600,
+    interval: float = 5.0,
+) -> dict[str, Any]:
+    """Poll a dedicated endpoint's status path until terminal; return the `data`
+    record on success. Source of truth is the endpoint's status_field (int or str).
+    Backoff mirrors poll_task (interval x1.2, capped 30s).
+    """
+    import requests
+
+    key = _resolve_key(key)
+    spec = _dedicated_spec(endpoint)
+    sf = spec["status_field"]
+    deadline = time.time() + timeout
+    cur = interval
+    while time.time() < deadline:
+        r = requests.get(
+            f"{BASE_URL}{spec['poll']}",
+            headers=_headers(key),
+            params={"taskId": task_id},
+            timeout=30,
+        )
+        r.raise_for_status()
+        record = r.json().get("data") or {}
+        status = record.get(sf)
+        if spec["status_kind"] == "int" and status is not None:
+            status = int(status)
+        if status in spec["success"]:
+            return record
+        if status in spec["fail"]:
+            raise KieError(
+                f"{endpoint} task {task_id} failed ({sf}={status}): "
+                f"{record.get('failCode')} {record.get('failMsg')}".strip()
+            )
+        time.sleep(min(cur, max(0.0, deadline - time.time())))
+        cur = min(cur * 1.2, 30.0)
+    raise KieError(f"{endpoint} task {task_id} timed out after {timeout}s")
+
+
+def run_dedicated(
+    endpoint: str,
+    body: dict[str, Any],
+    out_path: str | Path,
+    *,
+    key: Optional[str] = None,
+    poll_timeout: int = 600,
+) -> tuple[str, dict[str, Any], list[str]]:
+    """submit -> poll -> download first result URL via a dedicated endpoint.
+
+    Returns (path, record, urls) — the SAME tuple shape as run_job, so the calling
+    tool's downstream handling is identical regardless of path.
+    """
+    key = _resolve_key(key)
+    task_id = create_task_dedicated(endpoint, body, key=key)
+    record = poll_dedicated(endpoint, task_id, key=key, timeout=poll_timeout)
+    record.setdefault("taskId", task_id)
+    urls = parse_result_dedicated(endpoint, record)
+    if not urls:
+        raise KieError(f"{endpoint} task {task_id} succeeded but returned no result URL: {record}")
+    path = download(urls[0], out_path)
+    return path, record, urls

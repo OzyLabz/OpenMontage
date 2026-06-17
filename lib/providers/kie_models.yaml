@@ -226,6 +226,68 @@ models:
       character_orientation: {type: enum,   required: true,  default: "video", values: "image,video"}
       mode:                  {type: enum,   required: true,  default: "720p", values: "720p,1080p", cost: verify}
       # NOTE: requires file-upload API first; max 1 image + 1 video per request
+
+  # ---------------- VIDEO (dedicated endpoints — Phase 2) ----------------
+
+  - canonical_id: veo-3.1
+    gateway: kie
+    kie_model: "veo3.1"                         # human label only — dedicated rows route by `endpoint`, not a slash-id
+    endpoint: veo                               # DEDICATED: POST /api/v1/veo/generate -> GET /api/v1/veo/record-info (successFlag int / resultUrls stringified)
+    capability: video_generation
+    operations: [text_to_video, image_to_video, reference_to_video]
+    category_tags: [t2v, i2v, reference-to-video]
+    input_fields: [prompt, imageUrls, model, generationType, aspectRatio, resolution, duration, watermark, enableTranslation]
+    reference_fields:
+      imageUrls: 3                              # REFERENCE_2_VIDEO: 1-3; FIRST_AND_LAST_FRAMES_2_VIDEO: 1-2
+    field_aliases:
+      model: veo_model                          # wire body `model` (tier) reads from caller `veo_model` (tool `model` selects the row)
+      aspectRatio: aspect_ratio                 # wire is camelCase `aspectRatio` (confirmed via live paramJson); caller still passes `aspect_ratio`
+    defaults:
+      model: "veo3_fast"                        # cost/speed tier (veo3_lite cheapest, veo3 highest fidelity); agent can override via veo_model
+      resolution: "720p"                        # cost-minimal (4k ~2x credits)
+    param_specs:
+      prompt:            {type: string,  required: true,  cost: "yes"}
+      imageUrls:         {type: array,   required: false, values: "1-3 URLs (REFERENCE_2_VIDEO); 1-2 for first/last frame"}
+      model:             {type: enum,    required: false, default: "veo3_fast", values: "veo3,veo3_fast,veo3_lite", cost: "yes", note: "quality/speed/cost tiers; veo3_lite cheapest. Caller passes via veo_model (field_aliases)"}
+      generationType:    {type: enum,    required: false, default: "auto-determined", values: "TEXT_2_VIDEO,FIRST_AND_LAST_FRAMES_2_VIDEO,REFERENCE_2_VIDEO", note: "auto-inferred from inputs if omitted - verify-at-build whether explicit needed for i2v/reference"}
+      aspectRatio:       {type: enum,    required: false, default: "16:9", values: "16:9,9:16,Auto", note: "wire key is camelCase aspectRatio (confirmed via live paramJson); caller passes aspect_ratio (aliased). API default 16:9 — not force-defaulted"}
+      resolution:        {type: enum,    required: false, default: "720p", values: "720p,1080p,4k", cost: "yes", note: "4k ~2x credits per docs"}
+      duration:          {type: enum,    required: false, default: "8", values: "4,6,8", cost: "yes", note: "doc default 8 (priciest); pass 4 for cheap runs"}
+      watermark:         {type: string,  required: false}
+      enableTranslation: {type: boolean, required: false, default: "false", note: "live run showed the API stored enableTranslation=true when omitted — API-side default differs from doc; set explicitly to control"}
+      # callBackUrl omitted (synchronous polling); enableFallback deprecated - excluded
+    est_cost_usd: null
+    est_cost_credits: 30       # MEASURED (veo3_lite / 720p / 4s t2v) via /chat/credit delta
+    cost_note: "30 credits MEASURED for veo3_lite/720p/4s t2v (wall-clock ~62s, output had audio). Cost driven by model tier (veo3/veo3_fast/veo3_lite), resolution (4k ~2x), duration (4/6/8)."
+    source: "https://docs.kie.ai/veo3-api/generate-veo-3-video"
+
+  - canonical_id: runway-gen4-turbo
+    gateway: kie
+    kie_model: "runway-gen4-turbo"             # human label only — dedicated rows route by `endpoint`
+    endpoint: runway                            # DEDICATED: POST /api/v1/runway/generate -> GET /api/v1/runway/record-detail (state str / videoInfo.videoUrl)
+    capability: video_generation
+    operations: [image_to_video, text_to_video]
+    category_tags: [i2v, t2v]
+    input_fields: [prompt, imageUrl, duration, quality, aspectRatio, waterMark, callBackUrl]
+    reference_fields: {}                        # imageUrl is a single scalar source (not a ref array)
+    field_aliases:
+      aspectRatio: aspect_ratio                 # wire camelCase; caller passes aspect_ratio
+    defaults:
+      duration: 5                               # REQUIRED; 5s cost-minimal (10s blocks 1080p)
+      quality: "720p"                            # REQUIRED; 720p cost-minimal (1080p blocks 10s)
+      aspectRatio: "16:9"                       # required for text-only (ignored when imageUrl given); cost-neutral
+    param_specs:
+      prompt:      {type: string,  required: true,  values: "max 1800 chars", cost: "yes"}
+      imageUrl:    {type: string,  required: false, values: "i2v source image URL", cost: "yes"}
+      duration:    {type: enum,    required: true,  default: "5", values: "5,10", cost: "yes", note: "10s blocks 1080p"}
+      quality:     {type: enum,    required: true,  default: "720p", values: "720p,1080p", cost: "yes", note: "1080p blocks 10s"}
+      aspectRatio: {type: enum,    required: false, default: "16:9", values: "16:9,4:3,1:1,3:4,9:16", note: "required for text-only; ignored when imageUrl given; caller passes aspect_ratio (aliased)"}
+      waterMark:   {type: string,  required: false}
+      callBackUrl: {type: string,  required: false, note: "docs say 'required for all requests' - verify-at-build whether synchronous polling works without it"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured (dedicated endpoint, not yet paid-tested). Cost driven by quality (720p/1080p) and duration (5/10). Verify-at-build: callBackUrl requirement; result field videoInfo.videoUrl (from docs, not yet live-confirmed)."
+    source: "https://docs.kie.ai/runway-api/generate-ai-video"
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Animate a static character (input_urls) from a driving video (video_urls)."
