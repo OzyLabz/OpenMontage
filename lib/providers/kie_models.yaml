@@ -18,11 +18,12 @@ models:
     input_fields: [prompt, image_input, aspect_ratio, resolution, output_format]
     reference_fields:
       image_input: 8                           # array of reference/input images, max 8 (Gemini 3 Pro Image)
-    params:
-      prompt: "max 10000 chars"
-      resolution: "1K | 2K | 4K"
-      aspect_ratio: "1:1, 2:3, 3:2, 4:3, 9:16, 16:9, ..."
-      output_format: "png | jpg"
+    param_specs:
+      prompt:        {type: string,  required: true,  values: "max 10000 chars"}
+      image_input:   {type: array,   required: false, values: "<=8 ref imgs (jpeg/png/webp, <=30MB ea)"}
+      aspect_ratio:  {type: enum,    required: false, default: "1:1", values: "1:1,2:3,3:2,3:4,4:3,4:5,5:4,9:16,16:9,21:9,auto"}
+      resolution:    {type: enum,    required: false, default: "1K", values: "1K,2K,4K", cost: verify, note: "unmeasured; by nano-banana-2 analogy may be flat, NOT confirmed - verify-at-build"}
+      output_format: {type: enum,    required: false, default: "png", values: "png,jpg"}
     est_cost_usd: null
     est_cost_credits: null     # TBD until measured
     cost_note: "TBD until measured"
@@ -37,11 +38,12 @@ models:
     input_fields: [prompt, image_input, aspect_ratio, resolution, output_format]
     reference_fields:
       image_input: 14                          # array of reference/input images, max 14 (most refs of any image model)
-    params:
-      prompt: "max 20000 chars"
-      resolution: "1K | 2K | 4K (default 1K)"
-      aspect_ratio: "1:1, 2:3, 3:2, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9, auto, ..."
-      output_format: "png | jpg (default jpg)"
+    param_specs:
+      prompt:        {type: string,  required: true,  values: "max 20000 chars"}
+      image_input:   {type: array,   required: false, values: "<=14 ref imgs (jpeg/png/webp, <=30MB ea)"}
+      aspect_ratio:  {type: enum,    required: false, default: "auto", values: "1:1,1:4,1:8,2:3,3:2,3:4,4:1,4:3,4:5,5:4,8:1,9:16,16:9,21:9,auto"}
+      resolution:    {type: enum,    required: false, default: "1K", values: "1K,2K,4K", cost: flat, note: "MEASURED 8cr at both 1K and 2K - controls dimensions, not price"}
+      output_format: {type: enum,    required: false, default: "jpg", values: "png,jpg"}
     est_cost_usd: null
     est_cost_credits: 8        # MEASURED — flat 8 credits at BOTH 1K and 2K (16:9)
     cost_note: "8 credits — FLAT regardless of resolution (measured 8 at 2K=2752x1536 AND 1K=1376x768). resolution/output_format ARE now forwarded by kie_image; 1K is honored (1376x768, exactly half the 2K frame). Resolution controls dimensions/quality, not price."
@@ -55,10 +57,11 @@ models:
     category_tags: [t2i]
     input_fields: [prompt, aspect_ratio, quality, nsfw_checker]
     reference_fields: {}                        # text-to-image only — no reference/input images
-    params:
-      prompt: "max 3000 chars"
-      aspect_ratio: "1:1, 4:3, 3:4, 16:9, 9:16, 2:3, 3:2, 21:9 (required)"
-      quality: "basic = 2K | high = 4K"
+    param_specs:
+      prompt:        {type: string,  required: true,  values: "max 3000 chars"}
+      aspect_ratio:  {type: enum,    required: true,  default: "1:1", values: "1:1,4:3,3:4,16:9,9:16,2:3,3:2,21:9", note: "doc-marked 'Required field' despite default - verify-at-build if omitting 422s (multi_shots-style trap)"}
+      quality:       {type: enum,    required: true,  default: "basic", values: "basic=2K,high=4K", cost: verify, note: "high=4K likely costs more - UNMEASURED; also doc-required-despite-default"}
+      nsfw_checker:  {type: boolean, required: false, default: "false", values: "true,false"}
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured"
@@ -72,10 +75,10 @@ models:
     category_tags: [t2i]
     input_fields: [prompt, aspect_ratio, resolution]
     reference_fields: {}                        # text-to-image variant — no reference images (edit sibling is Phase 3)
-    params:
-      prompt: "max 20000 chars"
-      resolution: "1K | 2K | 4K"
-      aspect_ratio: "auto, 1:1, 16:9, ..."
+    param_specs:
+      prompt:        {type: string,  required: true,  values: "max 20000 chars"}
+      aspect_ratio:  {type: enum,    required: false, default: "auto", values: "auto,1:1,3:2,2:3,4:3,3:4,5:4,4:5,16:9,9:16,2:1,1:2,3:1,1:3,21:9,9:21"}
+      resolution:    {type: enum,    required: false, default: "not stated", values: "1K,2K,4K", cost: verify, note: "constraints: 1:1 cannot be 4K; aspect_ratio=auto yields only 1K"}
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Edit sibling gpt-image-2-image-to-image deferred to Phase 3 (verify ref fields)."
@@ -90,11 +93,11 @@ models:
     default_for_capability: true               # cheapest + proven (first paid kie image); keep as image default
     input_fields: [prompt, aspect_ratio, enable_pro, nsfw_checker]
     reference_fields: {}                        # text-to-image only — no reference images
-    params:
-      prompt: "max 5000 chars"
-      aspect_ratio: "2:3 | 3:2 | 1:1 | 16:9 | 9:16 (default 1:1)"
-      enable_pro: "boolean — true = quality mode, false = speed mode"
-      nsfw_checker: "boolean (default false)"
+    param_specs:
+      prompt:        {type: string,  required: true,  values: "max 5000 chars (English)"}
+      aspect_ratio:  {type: enum,    required: false, default: "1:1", values: "2:3,3:2,1:1,16:9,9:16"}
+      enable_pro:    {type: boolean, required: false, default: "not stated", values: "true=quality,false=speed", cost: verify, note: "measured 4cr at enable_pro=false; pro mode UNMEASURED"}
+      nsfw_checker:  {type: boolean, required: false, default: "false", values: "true,false"}
     est_cost_usd: null
     est_cost_credits: 4        # MEASURED (16:9, enable_pro off -> returned 6 variants, 1280x720, ~30s)
     cost_note: "empirical ~4 credits/request; returns multiple variations"
@@ -109,13 +112,16 @@ models:
     input_fields: [prompt, image_url, mask_url, reference_image_urls, rendering_speed, style, num_images, seed]
     reference_fields:
       reference_image_urls: 1                  # CONFIRMED: array accepts 1 only (rest ignored)
-    params:
-      prompt: "max 5000 chars"
-      image_url: "base image to edit (scalar)"
-      mask_url: "inpaint mask (scalar)"
-      rendering_speed: "TURBO | BALANCED | QUALITY"
-      style: "AUTO | REALISTIC | FICTION"
-      num_images: "1-4"
+    param_specs:
+      prompt:               {type: string,  required: true,  values: "max 5000 chars"}
+      image_url:            {type: string,  required: true,  values: "base image to edit (jpeg/png/webp, <=10MB)"}
+      mask_url:             {type: string,  required: true,  values: "inpaint mask (jpeg/png/webp, <=10MB)"}
+      reference_image_urls: {type: array,   required: true,  values: "character ref - 'currently only 1 image is supported'"}
+      rendering_speed:      {type: enum,    required: false, default: "BALANCED", values: "TURBO,BALANCED,QUALITY"}
+      style:                {type: enum,    required: false, default: "AUTO", values: "AUTO,REALISTIC,FICTION"}
+      expand_prompt:        {type: boolean, required: false, default: "true", values: "true,false", note: "MISSING from input_fields - add when wiring (Commit A)"}
+      num_images:           {type: enum,    required: false, default: "1", values: "1,2,3,4", note: "STRING enum per docs, NOT integer - fix kie_image schema (Commit A)"}
+      seed:                 {type: integer, required: false, default: "not stated"}
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Identity lock via 1 character ref; needs base image + mask."
@@ -129,8 +135,8 @@ models:
     category_tags: [upscale]
     input_fields: [image]                       # source image URL to upscale (no prompt)
     reference_fields: {}                        # upscaler — input `image` is the source, not a reference
-    params:
-      image: "source image URL (jpeg/png/webp, <=10MB)"
+    param_specs:
+      image: {type: string, required: true, values: "source image URL (jpeg/png/webp, <=10MB); no prompt"}
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Note: no prompt; input field is `image`."
@@ -150,11 +156,20 @@ models:
       reference_image_urls: 9                  # CONFIRMED 9 / 3 / 3
       reference_video_urls: 3
       reference_audio_urls: 3
-    params:
-      resolution: "480p | 720p | 1080p (default 720p)"
-      aspect_ratio: "1:1 | 4:3 | 3:4 | 16:9 | 9:16 | 21:9 | adaptive"
-      duration: "4-15 seconds (default 5)"
-      generate_audio: "boolean (default true)"
+    param_specs:
+      prompt:               {type: string,  required: true,  values: "min 3, max 20000 chars"}
+      first_frame_url:      {type: string,  required: false, values: "i2v first frame (URL or asset://id)"}
+      last_frame_url:       {type: string,  required: false, values: "i2v last frame (first+last mode)"}
+      reference_image_urls: {type: array,   required: false, values: "<=9 (jpeg/png/webp/bmp/tiff/gif, <=30MB ea)"}
+      reference_video_urls: {type: array,   required: false, values: "<=3 (mp4/mov, 2-15s ea, <=15s total, <=50MB)"}
+      reference_audio_urls: {type: array,   required: false, values: "<=3 (wav/mp3, 2-15s ea, <=15MB)"}
+      generate_audio:       {type: boolean, required: false, default: "true", values: "true,false", cost: "yes", note: "docs: 'enabling audio will increase the generation cost'"}
+      resolution:           {type: enum,    required: false, default: "720p", values: "480p,720p,1080p", cost: "yes", note: "480p cheapest/fastest; measured 76cr at 480p/4s"}
+      aspect_ratio:         {type: enum,    required: false, default: "16:9", values: "1:1,4:3,3:4,16:9,9:16,21:9,adaptive"}
+      duration:             {type: integer, required: false, default: "5", values: "4-15s", cost: verify, note: "longer likely costs more - UNMEASURED"}
+      nsfw_checker:         {type: boolean, required: false, default: "false", values: "true,false", note: "MISSING from input_fields - add when wiring (Commit A)"}
+      web_search:           {type: boolean, required: false, default: "not stated", values: "true,false", note: "MISSING from input_fields; 'use online search' (Commit A)"}
+      # return_last_frame: DEPRECATED per docs - intentionally omitted
     est_cost_usd: null
     est_cost_credits: 76       # MEASURED (480p / 4s / audio off)
     cost_note: "empirical 76 credits for 480p/4s; published 480p=30 figure was stale (likely Seedance 1.0)"
@@ -172,11 +187,16 @@ models:
       kling_elements: 3                        # up to 3 element OBJECTS; each element's element_input_urls holds 2-4 images (capture nested shape when wiring generation)
     defaults:
       multi_shots: false                       # API REQUIRES it (422 "multi_shots cannot be empty" if omitted); false = single-shot
-    params:
-      mode: "std | pro | 4K"
-      duration: "3-15 seconds"
-      aspect_ratio: "16:9 | 9:16 | 1:1"
-      sound: "boolean (native audio)"
+    param_specs:
+      prompt:         {type: string,  required: true,  values: "takes effect when multi_shots=false"}
+      mode:           {type: enum,    required: true,  default: "pro", values: "std,pro,4K", cost: "yes", note: "doc default=pro; pass std to minimize spend (measured 70cr std/5s); 4K 'consume more credits'"}
+      duration:       {type: enum,    required: true,  default: "5", values: "3-15s (integer as string)", cost: verify}
+      aspect_ratio:   {type: enum,    required: true,  default: "16:9", values: "16:9,9:16,1:1", note: "optional when image_urls provided (auto-adapts)"}
+      sound:          {type: boolean, required: true,  default: "false", values: "true,false", cost: verify, note: "defaults true when multi_shots=true"}
+      multi_shots:    {type: boolean, required: true,  default: "false", values: "true,false", note: "handled by defaults: block; 422 if omitted"}
+      multi_prompt:   {type: array,   required: false, values: "ARRAY OF OBJECTS {prompt(<=500 chars), duration(1-12s)}, <=5 shots; required WHEN multi_shots=true", note: "kie_video schema wrongly declares array-of-strings - fix (Commit A)"}
+      image_urls:     {type: array,   required: false, values: "1-2 first/last frame (jpg/png, <=10MB); required when @element_name used in prompt"}
+      kling_elements: {type: array,   required: false, values: "<=3 element OBJECTS, each: name + description + 2-4 image URLs"}
     est_cost_usd: null
     est_cost_credits: 70       # MEASURED (std mode / 5s / sound off -> 720p, video-only)
     cost_note: "70 credits for std/5s/no-audio (output 1280x720, no audio stream). mode/sound forward correctly through kie_video (verified on the wire). NOTE: kling-3.0 REQUIRES multi_shots — omitting it returns `422 multi_shots cannot be empty`; pass multi_shots=false for a single-shot clip. image_urls = first/last frame (i2v); kling_elements = identity/element refs."
@@ -192,11 +212,13 @@ models:
     reference_fields:
       input_urls: 1                            # 1 character photo (head/shoulders/torso visible)
       video_urls: 1                            # 1 driving motion video (3-30s)
-    params:
-      prompt: "max 2500 chars"
-      character_orientation: "image | video"
-      mode: "720p | 1080p"
-      duration: "3-30 seconds (from the motion video)"
+    param_specs:
+      prompt:                {type: string, required: false, values: "max 2500 chars (OPTIONAL here)"}
+      input_urls:            {type: array,  required: true,  values: "1 character image (jpeg/png/jpg, <=10MB, >300px, AR 2:5-5:2)"}
+      video_urls:            {type: array,  required: true,  values: "1 driving video (mp4/mov/mkv, <=100MB, 3-30s)"}
+      character_orientation: {type: enum,   required: true,  default: "video", values: "image,video"}
+      mode:                  {type: enum,   required: true,  default: "720p", values: "720p,1080p", cost: verify}
+      # NOTE: requires file-upload API first; max 1 image + 1 video per request
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Animate a static character (input_urls) from a driving video (video_urls)."

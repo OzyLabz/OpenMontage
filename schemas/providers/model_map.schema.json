@@ -45,6 +45,23 @@
             "description": "Field -> default value the tool fills in when the caller omits that field. Covers params the API requires but that look optional (e.g. kling-3.0 multi_shots: 422 if absent). Only fields also listed in input_fields are applied; an explicit caller value always wins.",
             "additionalProperties": true
           },
+          "param_specs": {
+            "type": "object",
+            "description": "Per-parameter knowledge map (the agent's source of truth for every controllable knob): exact kie param name -> {type, values, default, required, cost, note}. `required` reflects what the model's docs page TRULY enforces (not just JSON-schema 'required'), so it captures required-but-looks-optional traps. `cost`: 'yes' = spend-driving lever (minimize for cheap runs), 'flat' = measured no-op on price, 'verify' = plausible lever that is UNMEASURED (verify-at-build). Anything unconfirmable from docs is 'not stated' / flagged verify-at-build in `note`.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "description": "string | enum | integer | boolean | array" },
+                "values": { "type": "string", "description": "Enum options / numeric range / size+format constraints." },
+                "default": { "type": "string", "description": "Doc default, or 'not stated'." },
+                "required": { "type": "boolean", "description": "TRULY required per the model's docs page." },
+                "cost": { "type": "string", "enum": ["yes", "flat", "verify"], "description": "yes=spend lever, flat=measured no-op, verify=unmeasured lever." },
+                "note": { "type": "string" }
+              },
+              "required": ["type", "required"],
+              "additionalProperties": false
+            }
+          },
           "est_cost_usd": {
             "type": ["number", "null"],
             "description": "Best-effort per-run USD. null = credit-metered (USD varies by credit-package price)."
