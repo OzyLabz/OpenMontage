@@ -58,6 +58,7 @@ Before pipeline selection, check whether the request names a registry entry (a f
    - `voice` → pass `voice.id` as the TTS `voice` input (and `voice.provider` as `preferred_provider`) at the narration stage.
    - `media_profile` → resolve via `lib/media_profiles.get_profile(...)` and use as the compose/render output profile.
    - `style_prompt` and `niche` → **conditioning only**: concatenate into research/script/scene/image prompt text. NEVER branch on them or use them as a selector/routing input.
+   - `visuals` (optional) → if present, pass `visuals.image_provider` / `visuals.video_provider` as `preferred_provider` to `image_selector` / `video_selector` at the asset stage. This is an OFF-path vendor/gateway bias (switch stays OFF), NOT a model pin. If that provider is unavailable, the selector falls through to the existing scorer — no failure.
    Then proceed into Rule Zero using the entry's declared `pipeline`. **Switch stays OFF** — the channel locks style/voice/format only; it does NOT name a model or pin a gateway, so the existing scorer still chooses generation models.
 3. **If no entry matches:** proceed to Rule Zero exactly as today — no channel, default behavior, nothing changed.
 

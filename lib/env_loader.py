@@ -32,3 +32,21 @@ def require_env(key: str) -> str:
     if value is None:
         raise EnvironmentError(f"Required environment variable {key!r} is not set")
     return value
+
+
+def env_present(key: str) -> bool:
+    """True iff `key` is set to a REAL value — non-empty and not a leftover
+    inline `.env` comment.
+
+    Defense-in-depth companion to the loader fix in tools/base_tool.py: a key
+    whose value is empty/whitespace, or is purely an inline comment
+    (e.g. `KIE_API_KEY=   # get one at ...`), is treated as NOT present so
+    availability checks don't false-positive on the unfilled .env template.
+    """
+    value = os.environ.get(key)
+    if value is None:
+        return False
+    value = value.strip()
+    if not value or value.startswith("#"):
+        return False
+    return True

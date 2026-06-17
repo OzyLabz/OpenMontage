@@ -1,0 +1,34 @@
+# Gateway model-identity map (slim System A) — kie single gateway.
+# VIDEO ONLY for the first kie run (image model row added after video is proven).
+# Reference-field arities and input fields are CONFIRMED from each model's
+# docs.kie.ai page — do not guess. Add a new row only after reading its doc.
+version: "1.0"
+models:
+  - canonical_id: seedance-2.0
+    gateway: kie
+    kie_model: "bytedance/seedance-2"          # exact slash-id in createTask `model`
+    capability: video_generation
+    operations: [text_to_video, image_to_video, reference_to_video]
+    default_for_capability: true
+    input_fields:
+      - prompt
+      - first_frame_url
+      - last_frame_url
+      - reference_image_urls
+      - reference_video_urls
+      - reference_audio_urls
+      - generate_audio
+      - resolution
+      - aspect_ratio
+      - duration
+    reference_fields:        # name -> max arity (character-lock anchors; used later for personas)
+      reference_image_urls: 9
+      reference_video_urls: 3
+      reference_audio_urls: 3
+    params:
+      resolution: "480p | 720p | 1080p (default 720p)"
+      aspect_ratio: "1:1 | 4:3 | 3:4 | 16:9 | 9:16 | 21:9 | adaptive"
+      duration: "4-15 seconds (default 5)"
+      generate_audio: "boolean (default true)"
+    est_cost_usd: null       # credit-metered; confirm via /chat/credit delta + model doc
+    source: "https://docs.kie.ai/market/bytedance/seedance-2"

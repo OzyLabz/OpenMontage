@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/providers/model_map",
+  "title": "Gateway Model Map (slim)",
+  "description": "Structural model-identity map for gateway routing. Single gateway (kie) = no price layer. Each row maps a canonical model id to its kie slash-id, capability, per-model input fields, and reference-field arities (which differ per model and MUST be confirmed from that model's docs.kie.ai page, not guessed).",
+  "type": "object",
+  "required": ["version", "models"],
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["canonical_id", "gateway", "kie_model", "capability", "operations"],
+        "properties": {
+          "canonical_id": { "type": "string", "description": "Stable internal id, e.g. seedance-2.0" },
+          "gateway": { "type": "string", "enum": ["kie"] },
+          "kie_model": { "type": "string", "description": "Exact slash-id used in createTask `model`, e.g. bytedance/seedance-2" },
+          "capability": { "type": "string", "enum": ["image_generation", "video_generation"] },
+          "operations": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "default_for_capability": { "type": "boolean" },
+          "input_fields": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Whitelist of input keys this model accepts (the tool sends only these)."
+          },
+          "reference_fields": {
+            "type": "object",
+            "description": "reference-array field name -> max arity (for character-lock / multi-ref).",
+            "additionalProperties": { "type": "integer", "minimum": 1 }
+          },
+          "params": {
+            "type": "object",
+            "description": "Human notes on allowed scalar params.",
+            "additionalProperties": { "type": "string" }
+          },
+          "est_cost_usd": {
+            "type": ["number", "null"],
+            "description": "Best-effort per-run cost. null = credit-metered, confirm via /chat/credit delta + model doc."
+          },
+          "source": { "type": "string", "description": "docs.kie.ai page the row was confirmed from." }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

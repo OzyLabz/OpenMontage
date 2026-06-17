@@ -35,15 +35,23 @@ def _load_dotenv() -> None:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
-            key, _, value = line.partition("=")
+            key, _, raw_value = line.partition("=")
             key = key.strip()
-            value = value.strip().strip("'\"")
-            # Strip inline comments: VAR=value  # comment
-            # But only if the # is preceded by whitespace (avoid stripping from values like colors)
-            if "  #" in value:
-                value = value[:value.index("  #")].rstrip()
+            lead_ws = len(raw_value) - len(raw_value.lstrip())
+            value = raw_value.strip().strip("'\"")
+            # A value that is ENTIRELY an inline comment (e.g. `VAR=   # note`)
+            # must be treated as empty, not stored as the comment text — otherwise
+            # blank-but-commented keys read as "set" and tools falsely report
+            # available. Only blank it when whitespace separated `=` from the `#`,
+            # so a real leading-`#` value with no space (e.g. a hex color
+            # `#FFFFFF`) is preserved.
+            if value.startswith("#") and lead_ws > 0:
+                value = ""
+            # Strip a trailing inline comment: VAR=value  # comment
+            elif "  #" in value:
+                value = value[: value.index("  #")].rstrip().strip("'\"")
             elif "\t#" in value:
-                value = value[:value.index("\t#")].rstrip()
+                value = value[: value.index("\t#")].rstrip().strip("'\"")
             if key and key not in os.environ:
                 os.environ[key] = value
 

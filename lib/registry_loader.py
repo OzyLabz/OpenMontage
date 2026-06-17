@@ -94,3 +94,24 @@ def match_channel(
         if any(kw.lower() in text for kw in keywords):
             return entry
     return None
+
+
+def validate_visuals_providers(
+    entry: dict[str, Any], available_providers
+) -> list[tuple[str, str]]:
+    """Check a channel's `visuals.*` provider ids against real registry providers.
+
+    Returns a list of (slot, provider_id) for any visuals provider that is NOT a
+    discovered tool `provider` id. Empty list == all good. Decoupled from the
+    registry (caller passes the available provider ids) so channel loading never
+    forces tool discovery. Use in preflight/tests to fail fast on
+    channel<->registry provider-id drift (the `google` vs `google_tts` class of bug).
+    """
+    visuals = (entry or {}).get("visuals") or {}
+    avail = set(available_providers or [])
+    bad: list[tuple[str, str]] = []
+    for slot in ("image_provider", "video_provider"):
+        pid = visuals.get(slot)
+        if pid and pid not in avail:
+            bad.append((slot, pid))
+    return bad

@@ -59,6 +59,15 @@
     "niche": {
       "type": "string",
       "description": "Conditioning-only descriptor. Flavor text for prompts; never branched on. NOT used for matching."
+    },
+    "visuals": {
+      "type": "object",
+      "description": "Optional. OFF-path gateway/vendor bias for AI-generated visuals (NOT a model pin; switch stays OFF). Each value must equal a discovered tool's `provider` id for that capability (e.g. 'kie'); threaded into image_selector/video_selector as `preferred_provider` at the asset stage. If that provider is unavailable, the selector falls through to the scorer.",
+      "properties": {
+        "image_provider": { "type": "string", "description": "Preferred image_generation provider id (e.g. kie)." },
+        "video_provider": { "type": "string", "description": "Preferred video_generation provider id (e.g. kie)." }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
