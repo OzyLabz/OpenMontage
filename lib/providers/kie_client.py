@@ -236,7 +236,7 @@ _DEDICATED: dict[str, dict[str, Any]] = {
         "status_kind": "str",
         "success": {"success"},
         "fail": {"fail"},
-        "result_field": "videoInfo.videoUrl",  # ⚠️ verify-at-build (from docs; not yet live-tested)
+        "result_field": "videoInfo.videoUrl",  # CONFIRMED live (Gen-4 Turbo i2v run)
     },
     "aleph": {
         # VERIFY-AT-BUILD: poll path + result field inferred from Gen-4 Turbo
