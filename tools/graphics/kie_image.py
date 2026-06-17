@@ -173,6 +173,14 @@ class KieImage(BaseTool):
                     )
                 model_input[field] = list(vals)
 
+        # Fill model-declared required-defaults for any accepted field the caller
+        # omitted (schema-driven, not a per-model branch). An explicit caller
+        # value always wins. Mirrors kie_video; covers API-required-but-looks-
+        # optional params (e.g. seedream-4.5 aspect_ratio/quality).
+        for key, val in (row.get("defaults") or {}).items():
+            if key in allowed and key not in ref_caps:
+                model_input.setdefault(key, val)
+
         out_path = inputs.get(
             "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"
         )
