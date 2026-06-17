@@ -109,7 +109,7 @@ models:
     capability: image_generation
     operations: [image_edit, identity_edit]
     category_tags: [i2i, identity-edit]
-    input_fields: [prompt, image_url, mask_url, reference_image_urls, rendering_speed, style, num_images, seed]
+    input_fields: [prompt, image_url, mask_url, reference_image_urls, rendering_speed, style, expand_prompt, num_images, seed]
     reference_fields:
       reference_image_urls: 1                  # CONFIRMED: array accepts 1 only (rest ignored)
     param_specs:
@@ -119,8 +119,8 @@ models:
       reference_image_urls: {type: array,   required: true,  values: "character ref - 'currently only 1 image is supported'"}
       rendering_speed:      {type: enum,    required: false, default: "BALANCED", values: "TURBO,BALANCED,QUALITY"}
       style:                {type: enum,    required: false, default: "AUTO", values: "AUTO,REALISTIC,FICTION"}
-      expand_prompt:        {type: boolean, required: false, default: "true", values: "true,false", note: "MISSING from input_fields - add when wiring (Commit A)"}
-      num_images:           {type: enum,    required: false, default: "1", values: "1,2,3,4", note: "STRING enum per docs, NOT integer - fix kie_image schema (Commit A)"}
+      expand_prompt:        {type: boolean, required: false, default: "true", values: "true,false"}
+      num_images:           {type: enum,    required: false, default: "1", values: "1,2,3,4", note: "STRING enum per docs, NOT integer"}
       seed:                 {type: integer, required: false, default: "not stated"}
     est_cost_usd: null
     est_cost_credits: null
@@ -151,7 +151,7 @@ models:
     operations: [text_to_video, image_to_video, reference_to_video]
     category_tags: [t2v, i2v, reference-to-video]
     default_for_capability: true               # best identity-lock + proven (first paid kie video); video default
-    input_fields: [prompt, first_frame_url, last_frame_url, reference_image_urls, reference_video_urls, reference_audio_urls, generate_audio, resolution, aspect_ratio, duration]
+    input_fields: [prompt, first_frame_url, last_frame_url, reference_image_urls, reference_video_urls, reference_audio_urls, generate_audio, resolution, aspect_ratio, duration, nsfw_checker, web_search]
     reference_fields:
       reference_image_urls: 9                  # CONFIRMED 9 / 3 / 3
       reference_video_urls: 3
@@ -167,8 +167,8 @@ models:
       resolution:           {type: enum,    required: false, default: "720p", values: "480p,720p,1080p", cost: "yes", note: "480p cheapest/fastest; measured 76cr at 480p/4s"}
       aspect_ratio:         {type: enum,    required: false, default: "16:9", values: "1:1,4:3,3:4,16:9,9:16,21:9,adaptive"}
       duration:             {type: integer, required: false, default: "5", values: "4-15s", cost: verify, note: "longer likely costs more - UNMEASURED"}
-      nsfw_checker:         {type: boolean, required: false, default: "false", values: "true,false", note: "MISSING from input_fields - add when wiring (Commit A)"}
-      web_search:           {type: boolean, required: false, default: "not stated", values: "true,false", note: "MISSING from input_fields; 'use online search' (Commit A)"}
+      nsfw_checker:         {type: boolean, required: false, default: "false", values: "true,false"}
+      web_search:           {type: boolean, required: false, default: "not stated", values: "true,false", note: "'use online search'"}
       # return_last_frame: DEPRECATED per docs - intentionally omitted
     est_cost_usd: null
     est_cost_credits: 76       # MEASURED (480p / 4s / audio off)
@@ -194,7 +194,7 @@ models:
       aspect_ratio:   {type: enum,    required: true,  default: "16:9", values: "16:9,9:16,1:1", note: "optional when image_urls provided (auto-adapts)"}
       sound:          {type: boolean, required: true,  default: "false", values: "true,false", cost: verify, note: "defaults true when multi_shots=true"}
       multi_shots:    {type: boolean, required: true,  default: "false", values: "true,false", note: "handled by defaults: block; 422 if omitted"}
-      multi_prompt:   {type: array,   required: false, values: "ARRAY OF OBJECTS {prompt(<=500 chars), duration(1-12s)}, <=5 shots; required WHEN multi_shots=true", note: "kie_video schema wrongly declares array-of-strings - fix (Commit A)"}
+      multi_prompt:   {type: array,   required: false, values: "ARRAY OF OBJECTS {prompt(<=500 chars), duration(1-12s)}, <=5 shots; required WHEN multi_shots=true"}
       image_urls:     {type: array,   required: false, values: "1-2 first/last frame (jpg/png, <=10MB); required when @element_name used in prompt"}
       kling_elements: {type: array,   required: false, values: "<=3 element OBJECTS, each: name + description + 2-4 image URLs"}
     est_cost_usd: null

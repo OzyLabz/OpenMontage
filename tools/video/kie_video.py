@@ -89,13 +89,26 @@ class KieVideo(BaseTool):
             },
             "duration": {"type": ["integer", "string"], "description": "4-15 seconds (default 5)"},
             "generate_audio": {"type": "boolean", "default": True},
+            "nsfw_checker": {"type": "boolean", "description": "Seedance: false disables content filtering (default false)."},
+            "web_search": {"type": "boolean", "description": "Seedance: use online search to ground generation."},
             # --- Kling 3.0 video params (forwarded per the model_map input_fields) ---
             "mode": {"type": "string", "description": "Kling quality/resolution mode: std | pro | 4K."},
             "sound": {"type": "boolean", "description": "Kling native-audio toggle."},
             "image_urls": {"type": "array", "items": {"type": "string"}, "description": "Kling first/last frame image URLs (1-2)."},
             "kling_elements": {"type": "array", "items": {"type": "object"}, "description": "Kling element/identity references (<=3 element objects)."},
             "multi_shots": {"type": "boolean"},
-            "multi_prompt": {"type": "array", "items": {"type": "string"}},
+            "multi_prompt": {
+                "type": "array",
+                "description": "Kling multi-shot prompts (when multi_shots=true): <=5 shot OBJECTS.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "prompt": {"type": "string", "description": "Shot prompt (<=500 chars)."},
+                        "duration": {"type": "integer", "description": "Shot duration 1-12s."},
+                    },
+                    "required": ["prompt", "duration"],
+                },
+            },
             # --- Reserved for persona character-lock (optional; unused on text_to_video) ---
             "first_frame_url": {"type": "string"},
             "last_frame_url": {"type": "string"},
