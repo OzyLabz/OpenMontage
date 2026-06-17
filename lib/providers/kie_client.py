@@ -239,8 +239,9 @@ _DEDICATED: dict[str, dict[str, Any]] = {
         "result_field": "videoInfo.videoUrl",  # CONFIRMED live (Gen-4 Turbo i2v run)
     },
     "aleph": {
-        # Doc-confirmed via docs.kie.ai/runway-api/get-aleph-video-details (example
-        # response). Aleph mirrors Veo's record-info / successFlag shape, NOT Runway's.
+        # LIVE-CONFIRMED (v2v paid run): poll /aleph/record-info, successFlag int,
+        # result at response.resultVideoUrl. Aleph mirrors Veo's shape, NOT Runway's.
+        # (Real-failure field shape is the only un-observed corner — see fail_on_error.)
         "submit": "/api/v1/aleph/generate",
         "poll": "/api/v1/aleph/record-info",
         "status_field": "successFlag",       # int: 1=success; 0="failed OR in progress" (ambiguous)

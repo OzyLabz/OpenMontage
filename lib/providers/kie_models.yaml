@@ -311,8 +311,8 @@ models:
       uploadCn:       {type: boolean, required: false, default: "false", note: "false=S3/R2 storage, true=Alibaba OSS"}
       callBackUrl:    {type: string,  required: false, note: "optional — sync polling works without it (per Gen-4 finding)"}
     est_cost_usd: null
-    est_cost_credits: null
-    cost_note: "TBD until measured (dedicated endpoint, not yet paid-tested). Doc-confirmed shape: poll /api/v1/aleph/record-info, successFlag int, result at response.resultVideoUrl. VERIFY-AT-BUILD on first live run: successFlag=0 means 'failed OR in progress' (no distinct fail value) — fail-detection falls back to errorMessage/errorCode; confirm real fail behavior. No duration/quality params — cost likely scales with source-video length."
+    est_cost_credits: 110      # MEASURED (v2v on a 4s/720p source) via /chat/credit delta
+    cost_note: "110 credits MEASURED for v2v on a 4s/720p source (wall-clock ~134s; output preserved source 1280x720 + 4s + audio). Shape LIVE-CONFIRMED: poll /api/v1/aleph/record-info, successFlag=1 on success (errorCode/errorMessage null), result at response.resultVideoUrl. No duration/quality params — cost scales with source length (4s = 110cr, the priciest video model measured). Residual: a REAL failure's field shape is un-observed (success path only); fail-detection falls back to errorMessage/errorCode."
     source: "https://docs.kie.ai/runway-api/generate-aleph-video"
     est_cost_usd: null
     est_cost_credits: null
