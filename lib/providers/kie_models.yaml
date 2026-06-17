@@ -170,6 +170,8 @@ models:
     reference_fields:
       image_urls: 2                            # 1-2 first/last frame images (i2v)
       kling_elements: 3                        # up to 3 element OBJECTS; each element's element_input_urls holds 2-4 images (capture nested shape when wiring generation)
+    defaults:
+      multi_shots: false                       # API REQUIRES it (422 "multi_shots cannot be empty" if omitted); false = single-shot
     params:
       mode: "std | pro | 4K"
       duration: "3-15 seconds"

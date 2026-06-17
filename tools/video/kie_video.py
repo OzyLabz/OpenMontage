@@ -196,6 +196,14 @@ class KieVideo(BaseTool):
                     )
                 model_input[field] = list(vals)
 
+        # Fill model-declared required-defaults for any accepted field the caller
+        # omitted (schema-driven, not a per-model branch). An explicit caller
+        # value always wins. Covers API-required-but-looks-optional params like
+        # kling-3.0's multi_shots (422 "multi_shots cannot be empty" if absent).
+        for key, val in (row.get("defaults") or {}).items():
+            if key in allowed and key not in ref_caps:
+                model_input.setdefault(key, val)
+
         out_path = inputs.get(
             "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"
         )

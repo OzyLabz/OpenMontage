@@ -40,6 +40,11 @@
             "description": "Human notes on allowed scalar params.",
             "additionalProperties": { "type": "string" }
           },
+          "defaults": {
+            "type": "object",
+            "description": "Field -> default value the tool fills in when the caller omits that field. Covers params the API requires but that look optional (e.g. kling-3.0 multi_shots: 422 if absent). Only fields also listed in input_fields are applied; an explicit caller value always wins.",
+            "additionalProperties": true
+          },
           "est_cost_usd": {
             "type": ["number", "null"],
             "description": "Best-effort per-run USD. null = credit-metered (USD varies by credit-package price)."
