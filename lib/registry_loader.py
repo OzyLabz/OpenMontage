@@ -27,6 +27,13 @@ SCHEMA_PATH = (
     / "registry"
     / "channel.schema.json"
 )
+PERSONAS_DIR = Path(__file__).resolve().parent.parent / "registry" / "personas"
+PERSONA_SCHEMA_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "schemas"
+    / "registry"
+    / "persona.schema.json"
+)
 
 
 def _load_channel_schema() -> dict:
@@ -115,3 +122,68 @@ def validate_visuals_providers(
         if pid and pid not in avail:
             bad.append((slot, pid))
     return bad
+
+
+# ---------------------------------------------------------------------------
+# Persona entries (influencer mode) — sibling of the channel loader above.
+#
+# A persona locks a character identity (reference image set) + NAMED generation
+# model(s) for character-consistent output (switch-ON + named model, NOT
+# preferred_provider). look/vibe/niche are conditioning-only; reference_images
+# role/use_for are selection metadata only. Matching uses match.keywords only.
+# Mirrors the channel functions byte-for-byte (different dir + schema). Adding a
+# persona = drop registry/personas/<id>.yaml (+ its asset dir) — auto-discovered.
+# ---------------------------------------------------------------------------
+
+
+def _load_persona_schema() -> dict:
+    with open(PERSONA_SCHEMA_PATH) as f:
+        return json.load(f)
+
+
+def validate_persona(entry: dict) -> None:
+    """Validate a persona entry dict against the schema."""
+    schema = _load_persona_schema()
+    jsonschema.validate(instance=entry, schema=schema)
+
+
+def load_persona(name: str, personas_dir: Optional[Path] = None) -> dict[str, Any]:
+    """Load and validate a persona entry by id (filename without .yaml)."""
+    personas_dir = personas_dir or PERSONAS_DIR
+    path = personas_dir / f"{name}.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"Persona entry not found: {path}")
+
+    with open(path) as f:
+        entry = yaml.safe_load(f)
+
+    validate_persona(entry)
+    return entry
+
+
+def list_personas(personas_dir: Optional[Path] = None) -> list[str]:
+    """List all available persona entry ids."""
+    personas_dir = personas_dir or PERSONAS_DIR
+    if not personas_dir.exists():
+        return []
+    return sorted(p.stem for p in personas_dir.glob("*.yaml"))
+
+
+def match_persona(
+    request: str, personas_dir: Optional[Path] = None
+) -> Optional[dict[str, Any]]:
+    """Match a request to a persona entry by keyword (dead-simple).
+
+    A request matches a persona if its (lowercased) text contains any of that
+    persona's `match.keywords`. Matching uses keywords ONLY — never `niche`,
+    `look`, or `vibe`. Returns the first matching, validated persona entry, or
+    None when no persona matches (caller falls through to the channel check,
+    then default behavior).
+    """
+    text = (request or "").lower()
+    for name in list_personas(personas_dir):
+        entry = load_persona(name, personas_dir)
+        keywords = entry.get("match", {}).get("keywords", [])
+        if any(kw.lower() in text for kw in keywords):
+            return entry
+    return None

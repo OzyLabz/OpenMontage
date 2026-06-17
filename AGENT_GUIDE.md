@@ -52,15 +52,24 @@ Before pipeline selection, check whether the request names a registry entry (a f
 
 ### Required behavior
 
-1. **Match:** call `lib/registry_loader.match_channel(request)`. Matching uses the entry's `match.keywords` only.
-2. **If a channel matches:** load it (`load_channel`) and **lock**, for the whole job:
+Check **persona first, then channel** (influencer mode is the more specific match), then fall through. The two checks are independent siblings; keyword sets are authored disjoint.
+
+1. **Match persona:** call `lib/registry_loader.match_persona(request)`. Matching uses the entry's `match.keywords` only.
+2. **If a persona matches:** load it (`load_persona`) and **lock**, for the whole job (**switch ON**):
+   - `models` → the persona's NAMED canonical model ids are the lock. Run the asset stage **switch-ON with `model` = `models.still`** (identity stills) / **`models.video`** (reference-to-video clips). This is switch-ON + named model — **NOT** `preferred_provider`. (Single-gateway today: pass `model=` straight to `kie_image`/`kie_video`; when System C + multi-gateway land, the same named model routes to the cheapest gateway unchanged.)
+   - `reference_images` → thread into the chosen model's declared reference field (looked up from `lib/providers/model_map`: `image_input` for nano-banana, `reference_image_urls` for seedance, `reference_image` for wan-2.7-r2v, `kling_elements` for kling), capped at that model's arity. Use `role`/`use_for` to pick which refs serve identity-lock vs scene — this is **selection metadata only, never branch logic**. References are URLs (kie-hosted/generated; local→URL upload is a deferred sub-task).
+   - `media_profile` → resolve via `lib/media_profiles.get_profile(...)` for the compose/render output profile.
+   - `look`, `vibe`, `niche` → **conditioning only**: concatenate into research/script/scene/image/video prompt text. NEVER branch on them or use them as a selector/routing input.
+   - `voice` → **deferred**: schema-only this build (TTS out of scope; persona is visuals-only).
+   Then proceed into Rule Zero using the entry's declared `pipeline`. **Fail loud** if a named persona model has no serving gateway — no silent fallback to the scorer (switch-ON contract).
+3. **Else match channel:** call `lib/registry_loader.match_channel(request)`. **If a channel matches:** load it (`load_channel`) and **lock**, for the whole job:
    - `playbook` → load via `styles/playbook_loader.load_playbook(...)` and use as the active style playbook.
    - `voice` → pass `voice.id` as the TTS `voice` input (and `voice.provider` as `preferred_provider`) at the narration stage.
    - `media_profile` → resolve via `lib/media_profiles.get_profile(...)` and use as the compose/render output profile.
    - `style_prompt` and `niche` → **conditioning only**: concatenate into research/script/scene/image prompt text. NEVER branch on them or use them as a selector/routing input.
    - `visuals` (optional) → if present, pass `visuals.image_provider` / `visuals.video_provider` as `preferred_provider` to `image_selector` / `video_selector` at the asset stage. This is an OFF-path vendor/gateway bias (switch stays OFF), NOT a model pin. If that provider is unavailable, the selector falls through to the existing scorer — no failure.
    Then proceed into Rule Zero using the entry's declared `pipeline`. **Switch stays OFF** — the channel locks style/voice/format only; it does NOT name a model or pin a gateway, so the existing scorer still chooses generation models.
-3. **If no entry matches:** proceed to Rule Zero exactly as today — no channel, default behavior, nothing changed.
+4. **If no entry matches:** proceed to Rule Zero exactly as today — no persona, no channel, default behavior, nothing changed.
 
 ## Rule Zero — All Production Goes Through a Pipeline
 

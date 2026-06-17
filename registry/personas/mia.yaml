@@ -1,0 +1,49 @@
+# Persona entry (influencer mode) — Mia.
+#
+# A persona locks a character IDENTITY (reference image set) + NAMED generation
+# model(s) for character-consistent stills/clips. The lock is switch-ON + named
+# model (models.* are canonical ids resolved against lib/providers/model_map) —
+# NOT preferred_provider. `look`, `vibe`, `niche` are CONDITIONING ONLY:
+# concatenated into prompt text, never read in a conditional, selector input, or
+# routing decision. reference_images[].role/use_for are SELECTION metadata only
+# (let the agent pick the right ref for a job) — never branched on as logic.
+# Request matching uses `match.keywords` only. `voice` is schema-only/deferred
+# (TTS out of scope; persona is visuals-only for now).
+#
+# Adding a persona = drop registry/personas/<id>.yaml + its refs/ dir; it is
+# auto-discovered exactly like a channel.
+id: mia
+pick_me_when: >
+  A warm, candid late-20s lifestyle creator for vertical reels and stills —
+  natural daylight, approachable energy.
+match:
+  keywords: ["mia", "make a mia", "mia reel", "mia still"]
+pipeline: animated-explainer          # placeholder pipeline; persona_input block declares the lock
+models:
+  still: nano-banana-2                # kie; identity stills via image_input (<=14 refs)
+  video: seedance-2.0                 # kie; reference_to_video via reference_image_urls (<=9). wan-2.7-r2v also proven.
+reference_images:
+  # First light generates these (kie t2i, chained for consistency) and saves them
+  # here; the kie-hosted URLs are also used directly (no upload build needed).
+  - path: refs/mia_face.png
+    role: face
+    use_for: [identity-lock]
+    note: front-facing portrait, neutral expression, even daylight
+  - path: refs/mia_three_quarter.png
+    role: three-quarter
+    use_for: [identity-lock, scene]
+    note: 3/4 angle, soft window light
+  - path: refs/mia_expression.png
+    role: expression
+    use_for: [scene]
+    note: candid smile
+look: >
+  Late-20s woman, warm brown eyes, shoulder-length dark wavy hair, light freckles,
+  minimalist gold hoop earrings, natural makeup.
+vibe: >
+  Upbeat, candid lifestyle energy; soft natural daylight, shallow depth of field.
+niche: lifestyle-creator              # conditioning-only — never matched or branched
+media_profile: tiktok                 # 9:16 vertical (lib/media_profiles.py key)
+voice:                                # SCHEMA-ONLY / DEFERRED (TTS out of scope this build)
+  provider: elevenlabs
+  id: TBD

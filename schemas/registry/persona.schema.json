@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openmontage/registry/persona",
+  "title": "Persona Entry",
+  "description": "Influencer-mode persona entry. Locks a character identity (reference image set) + named generation model(s) so the pipeline produces character-consistent output. Mirrors the channel entry pattern: YAML + per-entry asset dir, auto-discovered, browsable (pick_me_when + id + keywords like the model catalog). Persona lock = switch-ON + named model (NOT preferred_provider). look/vibe/niche are CONDITIONING-ONLY (concatenated into prompt text; never read in a conditional, selector input, or routing decision). reference_images[].role/use_for are SELECTION metadata only (let the agent pick the right ref for a job) — never branched on as logic. Request matching uses match.keywords only. voice is schema-only/deferred (TTS out of scope).",
+  "type": "object",
+  "required": ["id", "pick_me_when", "match", "pipeline", "models", "reference_images", "media_profile"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Canonical persona id (kebab-case).",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "pick_me_when": {
+      "type": "string",
+      "description": "One-line catalog descriptor (mirrors the model catalog's 'pick me when'). Browsable flavor text; never branched on.",
+      "minLength": 1
+    },
+    "match": {
+      "type": "object",
+      "description": "Request-matching config. Matching uses keywords only (dead-simple, like channels).",
+      "required": ["keywords"],
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "description": "Lowercase phrases; a request matches this persona if it contains any of them.",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "string",
+      "description": "Pipeline manifest name (without .yaml) in pipeline_defs/."
+    },
+    "models": {
+      "type": "object",
+      "description": "Per-capability NAMED canonical model ids (the lock) — resolved against lib/providers/model_map. This is switch-ON + named model, NOT preferred_provider. At least one of still/video.",
+      "minProperties": 1,
+      "properties": {
+        "still": {
+          "type": "string",
+          "description": "Canonical model id for identity stills (e.g. nano-banana-2; reference field image_input)."
+        },
+        "video": {
+          "type": "string",
+          "description": "Canonical model id for reference-to-video clips (e.g. seedance-2.0; reference field reference_image_urls. wan-2.7-r2v also valid)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "reference_images": {
+      "type": "array",
+      "description": "Identity reference set (data sheet). Each entry has a path OR url plus role/use_for selection metadata. Capped at the chosen model's reference arity at wire time.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["role", "use_for"],
+        "anyOf": [
+          { "required": ["path"] },
+          { "required": ["url"] }
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Local path relative to the persona asset dir (e.g. refs/mia_face.png)."
+          },
+          "url": {
+            "type": "string",
+            "description": "Pre-hosted / generated reference URL (e.g. a kie-hosted output URL)."
+          },
+          "role": {
+            "type": "string",
+            "description": "What this reference shows.",
+            "enum": ["face", "three-quarter", "body", "outfit", "expression"]
+          },
+          "use_for": {
+            "type": "array",
+            "description": "Selection metadata: which job types this ref serves. Conditioning/selection only — never branched on as logic.",
+            "items": { "type": "string", "enum": ["identity-lock", "scene"] },
+            "minItems": 1
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional free-text (e.g. lighting, wardrobe). Conditioning-only."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "look": {
+      "type": "string",
+      "description": "Conditioning-only. Physical-appearance descriptor concatenated into generation prompts; never read in a conditional or routing decision."
+    },
+    "vibe": {
+      "type": "string",
+      "description": "Conditioning-only. Energy/tone/lighting descriptor for prompts; never branched on."
+    },
+    "niche": {
+      "type": "string",
+      "description": "Conditioning-only descriptor. Flavor text for prompts; never branched on. NOT used for matching."
+    },
+    "media_profile": {
+      "type": "string",
+      "description": "Media profile key in lib/media_profiles.py (e.g. tiktok_portrait)."
+    },
+    "voice": {
+      "type": "object",
+      "description": "SCHEMA-ONLY / DEFERRED. Recorded for forward-compat; NOT wired to TTS in this build (persona is visuals-only for now).",
+      "properties": {
+        "provider": { "type": "string" },
+        "id": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
