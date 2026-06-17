@@ -98,6 +98,17 @@ class KieImage(BaseTool):
             "expand_prompt": {"type": "boolean", "description": "Ideogram: auto-expand the prompt (default true)."},
             "num_images": {"type": "string", "enum": ["1", "2", "3", "4"], "description": "Ideogram: '1'-'4' (STRING enum per kie docs, not int)."},
             "seed": {"type": "integer"},
+            # --- Phase 3 image params (forwarded per each model's input_fields) ---
+            "input_urls": {"type": "array", "items": {"type": "string"}, "description": "GPT-Image-2 edit (<=16) / Wan image (<=9): input/reference images."},
+            "image_urls": {"type": "array", "items": {"type": "string"}, "description": "Grok i2i reference image (<=1)."},
+            "upscale_factor": {"type": "string", "enum": ["1", "2", "4", "8"], "description": "Topaz image upscale factor (image: 1/2/4/8)."},
+            "n": {"type": "integer", "description": "Wan image: number of images (1-4, or 1-12 sequential)."},
+            "enable_sequential": {"type": "boolean", "description": "Wan image: sequential generation mode."},
+            "thinking_mode": {"type": "boolean", "description": "Wan image (esp. Pro): reasoning mode (enable_sequential=false & no input_urls)."},
+            "color_palette": {"type": "array", "items": {"type": "object"}, "description": "Wan image: 3-10 color objects (hex + ratio)."},
+            "bbox_list": {"type": "array", "description": "Wan image: bounding boxes (max 2 per image)."},
+            "watermark": {"type": "boolean", "description": "Wan image: add AI-generated watermark."},
+            "callBackUrl": {"type": "string", "description": "Wan image Pro: optional async callback (we poll synchronously)."},
             "output_path": {"type": "string"},
         },
     }
@@ -150,19 +161,21 @@ class KieImage(BaseTool):
         kie_model = row["kie_model"]
         allowed = list(row.get("input_fields") or [])
         ref_caps: dict[str, int] = row.get("reference_fields") or {}
+        aliases: dict[str, str] = row.get("field_aliases") or {}
 
         # Build the kie `input` GENERICALLY from the model's declared input_fields
-        # (the model_map is the source of truth). Scalars forwarded as-is;
-        # reference arrays go through the arity-capped path. Only declared params sent.
+        # (the model_map is the source of truth — input_fields ARE the wire names).
+        # Scalars forwarded as-is; reference arrays go through the arity-capped path.
+        # field_aliases lets a wire field read from a different caller key.
         model_input: dict[str, Any] = {}
         for key in allowed:
             if key in ref_caps:
                 continue
-            val = inputs.get(key)
+            val = inputs.get(aliases.get(key, key))
             if val is not None:
                 model_input[key] = val
         for field, cap in ref_caps.items():
-            vals = inputs.get(field)
+            vals = inputs.get(aliases.get(field, field))
             if vals:
                 if not isinstance(vals, list):
                     vals = [vals]
@@ -180,6 +193,23 @@ class KieImage(BaseTool):
         for key, val in (row.get("defaults") or {}).items():
             if key in allowed and key not in ref_caps:
                 model_input.setdefault(key, val)
+
+        # Required-input validation (clear error instead of a confusing API 422):
+        # require_one_of -> each group needs >=1 field present; mutually_exclusive
+        # -> each group allows <=1. No-op for rows that declare neither.
+        for group in (row.get("require_one_of") or []):
+            if not any(g in model_input for g in group):
+                return ToolResult(
+                    success=False,
+                    error=f"{kie_model} requires at least one of: {', '.join(group)}",
+                )
+        for group in (row.get("mutually_exclusive") or []):
+            present = [g for g in group if g in model_input]
+            if len(present) > 1:
+                return ToolResult(
+                    success=False,
+                    error=f"{kie_model}: {' and '.join(present)} are mutually exclusive — provide only one",
+                )
 
         out_path = inputs.get(
             "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"

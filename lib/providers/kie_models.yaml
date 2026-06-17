@@ -314,6 +314,342 @@ models:
     est_cost_credits: 110      # MEASURED (v2v on a 4s/720p source) via /chat/credit delta
     cost_note: "110 credits MEASURED for v2v on a 4s/720p source (wall-clock ~134s; output preserved source 1280x720 + 4s + audio). Shape LIVE-CONFIRMED: poll /api/v1/aleph/record-info, successFlag=1 on success (errorCode/errorMessage null), result at response.resultVideoUrl. No duration/quality params — cost scales with source length (4s = 110cr, the priciest video model measured). Residual: a REAL failure's field shape is un-observed (success path only); fail-detection falls back to errorMessage/errorCode."
     source: "https://docs.kie.ai/runway-api/generate-aleph-video"
+
+  # ================= PHASE 3 (confirmed slash-id; ride run_job, no adapter) =================
+  # ---- IMAGE ----
+
+  - canonical_id: gpt-image-2-edit
+    gateway: kie
+    kie_model: "gpt-image-2-image-to-image"    # CONFIRMED: docs.kie.ai/market/gpt/gpt-image-2-image-to-image
+    capability: image_generation
+    operations: [image_edit, identity_edit]
+    category_tags: [i2i, identity-edit]
+    input_fields: [prompt, input_urls, aspect_ratio, resolution]
+    reference_fields:
+      input_urls: 16                            # THE input/reference image field (NOT image/image_urls); max 16; no mask field
+    require_one_of:
+      - [input_urls]                            # required input image(s) — clear error instead of API 422
+    param_specs:
+      prompt:       {type: string, required: true,  values: "max 20000 chars (edit instruction)"}
+      input_urls:   {type: array,  required: true,  values: "input/reference images, max 16 (no mask field on this model)"}
+      aspect_ratio: {type: enum,   required: false, default: "auto", values: "auto,1:1,3:2,2:3,4:3,3:4,5:4,4:5,16:9,9:16,2:1,1:2,3:1,1:3,21:9,9:21"}
+      resolution:   {type: enum,   required: false, default: "not stated", values: "1K,2K,4K", cost: verify, note: "1:1 cannot convert to 4K"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Edit sibling of the wired gpt-image-2 (t2i). Reference field is input_urls (array, <=16), NOT a single image or image_urls; no mask. Standard slash-id result path (resultJson string -> resultUrls)."
+    source: "https://docs.kie.ai/market/gpt/gpt-image-2-image-to-image"
+
+  - canonical_id: topaz-image-upscale
+    gateway: kie
+    kie_model: "topaz/image-upscale"           # CONFIRMED: docs.kie.ai/market/topaz/image-upscale
+    capability: image_generation
+    operations: [upscale]
+    category_tags: [upscale, i2i]
+    input_fields: [image_url, upscale_factor]
+    reference_fields: {}                        # image_url is a single scalar source
+    defaults:
+      upscale_factor: "2"                       # API marks it required yet supplies default 2 (required-with-default trap)
+    require_one_of:
+      - [image_url]
+    param_specs:
+      image_url:      {type: string, required: true, values: "source image URL (jpeg/png/webp, <=10MB)"}
+      upscale_factor: {type: enum,   required: true, default: "2", values: "1,2,4,8", cost: verify, note: "required-with-default trap; de-facto cost lever. Doc desc is a copy-paste artifact saying 'video'."}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. No prompt; only 2 inputs (image_url, upscale_factor). VERIFY-AT-BUILD: result/output field path NOT documented on the model page — retrieve via Get Task Details (expected standard resultJson->resultUrls); confirm at first real use."
+    source: "https://docs.kie.ai/market/topaz/image-upscale"
+
+  - canonical_id: grok-image-to-image
+    gateway: kie
+    kie_model: "grok-imagine/image-to-image"   # CONFIRMED: docs.kie.ai/market/grok-imagine/image-to-image
+    capability: image_generation
+    operations: [image_edit]
+    category_tags: [i2i]
+    input_fields: [prompt, image_urls, nsfw_checker]
+    reference_fields:
+      image_urls: 1                             # reference image, max 1
+    require_one_of:
+      - [image_urls]
+    param_specs:
+      prompt:       {type: string,  required: false, values: "edit guidance (optional)"}
+      image_urls:   {type: array,   required: true,  values: "reference image, max 1 (jpeg/png/webp, <=10MB)"}
+      nsfw_checker: {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Grok i2i: image_urls (max 1) is the sole required input; prompt optional. Standard slash-id result path."
+    source: "https://docs.kie.ai/market/grok-imagine/image-to-image"
+
+  - canonical_id: wan-2.7-image
+    gateway: kie
+    kie_model: "wan/2-7-image"                 # CONFIRMED: docs.kie.ai/market/wan/2-7-image
+    capability: image_generation
+    operations: [text_to_image, image_edit, identity_edit]
+    category_tags: [t2i, i2i, identity-edit]
+    input_fields: [prompt, input_urls, aspect_ratio, resolution, n, enable_sequential, thinking_mode, color_palette, bbox_list, watermark, seed, nsfw_checker]
+    reference_fields:
+      input_urls: 9                             # input images for edit / multi-reference fusion, max 9
+    defaults:
+      resolution: "1K"                          # cost-minimal (API default 2K; agent can override to 2K/4K)
+    param_specs:
+      prompt:            {type: string,  required: true,  values: "max 5000 chars"}
+      input_urls:        {type: array,   required: false, values: "input images for edit/multi-ref fusion, max 9"}
+      aspect_ratio:      {type: enum,    required: false, values: "1:1,16:9,4:3,21:9,3:4,9:16,8:1,1:8"}
+      resolution:        {type: enum,    required: false, default: "2K", values: "1K,2K,4K", cost: "yes", note: "defaulted to 1K (cost-minimal); 4K is t2i Standard-Mode only"}
+      n:                 {type: integer, required: false, default: "4 (12 sequential)", values: "1-4 default; 1-12 sequential", cost: "yes", note: "image count = cost multiplier"}
+      enable_sequential: {type: boolean, required: false, default: "false", values: "true,false"}
+      thinking_mode:     {type: boolean, required: false, default: "false", values: "true,false", cost: verify, note: "only when enable_sequential=false AND input_urls empty"}
+      color_palette:     {type: array,   required: false, values: "3-10 color objects (hex + ratio)"}
+      bbox_list:         {type: array,   required: false, values: "max 2 boxes per image"}
+      watermark:         {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:              {type: integer, required: false, default: "0", values: "0-2147483647"}
+      nsfw_checker:      {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan image (t2i + edit/multi-ref via input_urls<=9). Cost levers: resolution (def 1K), n. Standard slash-id result path."
+    source: "https://docs.kie.ai/market/wan/2-7-image"
+
+  - canonical_id: wan-2.7-image-pro
+    gateway: kie
+    kie_model: "wan/2-7-image-pro"             # CONFIRMED: docs.kie.ai/market/wan/2-7-image-pro
+    capability: image_generation
+    operations: [text_to_image, image_edit, identity_edit]
+    category_tags: [t2i, i2i, identity-edit]
+    input_fields: [prompt, input_urls, aspect_ratio, resolution, n, enable_sequential, thinking_mode, color_palette, bbox_list, watermark, seed, nsfw_checker, callBackUrl]
+    reference_fields:
+      input_urls: 9
+    defaults:
+      resolution: "1K"                          # cost-minimal (API default 2K)
+    param_specs:
+      prompt:            {type: string,  required: true,  values: "max 5000 chars (CN/EN)"}
+      input_urls:        {type: array,   required: false, values: "input images, max 9"}
+      aspect_ratio:      {type: enum,    required: false, values: "1:1,16:9,4:3,21:9,3:4,9:16,8:1,1:8"}
+      resolution:        {type: enum,    required: false, default: "2K", values: "1K,2K,4K", cost: "yes", note: "defaulted 1K (cost-minimal); 4K is t2i Standard-Mode only"}
+      n:                 {type: integer, required: false, default: "4 (12 sequential)", values: "1-4 default; 1-12 sequential", cost: "yes"}
+      enable_sequential: {type: boolean, required: false, default: "false", values: "true,false"}
+      thinking_mode:     {type: boolean, required: false, default: "false", values: "true,false", cost: verify, note: "Pro reasoning mode; gated: enable_sequential=false AND input_urls empty"}
+      color_palette:     {type: array,   required: false, values: "3-10 color objects (hex + ratio)"}
+      bbox_list:         {type: array,   required: false, values: "max 2 boxes per image"}
+      watermark:         {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:              {type: integer, required: false, default: "0", values: "0-2147483647"}
+      nsfw_checker:      {type: boolean, required: false, default: "false", values: "true,false"}
+      callBackUrl:       {type: string,  required: false, note: "optional webhook (recommended for production)"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan image Pro (thinking_mode, multi-image edit, t2i up to 4K Standard Mode). Cost levers: resolution, n, thinking_mode."
+    source: "https://docs.kie.ai/market/wan/2-7-image-pro"
+
+  # ---- VIDEO ----
+
+  - canonical_id: wan-2.7-text-to-video
+    gateway: kie
+    kie_model: "wan/2-7-text-to-video"         # CONFIRMED: docs.kie.ai/market/wan/2-7-text-to-video
+    capability: video_generation
+    operations: [text_to_video]
+    category_tags: [t2v]
+    input_fields: [prompt, negative_prompt, audio_url, resolution, ratio, duration, prompt_extend, watermark, seed, nsfw_checker]
+    reference_fields: {}
+    field_aliases:
+      ratio: aspect_ratio                       # Wan t2v wire key is `ratio` (others use aspect_ratio); caller passes aspect_ratio
+    defaults:
+      resolution: "720p"                        # cost-minimal (API default 1080p)
+    param_specs:
+      prompt:          {type: string,  required: true,  values: "1-5000 chars"}
+      negative_prompt: {type: string,  required: false, values: "max 500 chars"}
+      audio_url:       {type: string,  required: false, values: "audio input URL (full-modality)"}
+      resolution:      {type: enum,    required: false, default: "1080p", values: "720p,1080p", cost: "yes", note: "defaulted 720p (cost-minimal)"}
+      ratio:           {type: enum,    required: false, default: "16:9", values: "16:9,9:16,1:1,4:3,3:4", note: "wire key `ratio`; caller passes aspect_ratio (aliased)"}
+      duration:        {type: integer, required: false, default: "5", values: "2-15s", cost: "yes"}
+      prompt_extend:   {type: boolean, required: false, default: "true", values: "true,false"}
+      watermark:       {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:            {type: integer, required: false, values: "0-2147483647"}
+      nsfw_checker:    {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan t2v. Cost levers: resolution (def 720p), duration. NOTE: wire aspect key is `ratio` (aliased from aspect_ratio)."
+    source: "https://docs.kie.ai/market/wan/2-7-text-to-video"
+
+  - canonical_id: wan-2.7-image-to-video
+    gateway: kie
+    kie_model: "wan/2-7-image-to-video"        # CONFIRMED: docs.kie.ai/market/wan/2-7-image-to-video
+    capability: video_generation
+    operations: [image_to_video]
+    category_tags: [i2v]
+    input_fields: [prompt, negative_prompt, first_frame_url, last_frame_url, first_clip_url, driving_audio_url, resolution, duration, prompt_extend, watermark, seed, nsfw_checker]
+    reference_fields: {}                        # first_frame_url/last_frame_url/first_clip_url are scalars
+    defaults:
+      resolution: "720p"                        # cost-minimal (API default 1080p)
+    require_one_of:
+      - [first_frame_url, last_frame_url, first_clip_url]   # >=1 needed; bare call -> clear error, not a confusing 422
+    param_specs:
+      prompt:           {type: string,  required: true,  values: "max 5000 chars"}
+      negative_prompt:  {type: string,  required: false, values: "max 500 chars"}
+      first_frame_url:  {type: string,  required: false, values: "first-frame-to-video source", note: "one of {first_frame_url,last_frame_url,first_clip_url} required (require_one_of)"}
+      last_frame_url:   {type: string,  required: false, values: "with first_frame_url => first-and-last-frame mode"}
+      first_clip_url:   {type: string,  required: false, values: "video-continuation mode source clip"}
+      driving_audio_url: {type: string, required: false, values: "audio input (full-modality)"}
+      resolution:       {type: enum,    required: false, default: "1080p", values: "720p,1080p", cost: "yes", note: "defaulted 720p (cost-minimal)"}
+      duration:         {type: integer, required: false, default: "5", values: "2-15s", cost: "yes"}
+      prompt_extend:    {type: boolean, required: false, default: "true", values: "true,false"}
+      watermark:        {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:             {type: integer, required: false, values: "0-2147483647"}
+      nsfw_checker:     {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan i2v — three modes: first-frame (first_frame_url), first+last (both), continuation (first_clip_url). require_one_of enforces >=1 image/clip so a bare call errors clearly. Cost levers: resolution (def 720p), duration."
+    source: "https://docs.kie.ai/market/wan/2-7-image-to-video"
+
+  - canonical_id: wan-2.7-r2v
+    gateway: kie
+    kie_model: "wan/2-7-r2v"                   # CONFIRMED (SLUG TRAP: 2-7-reference-to-video 404s): docs.kie.ai/market/wan/2-7-r2v
+    capability: video_generation
+    operations: [reference_to_video]
+    category_tags: [reference-to-video, i2v, v2v, lip-sync, motion-control]
+    input_fields: [prompt, negative_prompt, reference_image, reference_video, first_frame, reference_voice, resolution, aspect_ratio, duration, prompt_extend, watermark, seed, nsfw_checker]
+    reference_fields:
+      reference_image: 5                        # per-field upper bound; SEE cost_note: COMBINED cap is 5 TOTAL with reference_video
+      reference_video: 5
+    defaults:
+      resolution: "720p"                        # cost-minimal
+    param_specs:
+      prompt:          {type: string,  required: true,  values: "max 5000 chars"}
+      negative_prompt: {type: string,  required: false, values: "max 500 chars"}
+      reference_image: {type: array,   required: false, values: "image refs (combined cap 5 TOTAL with reference_video)"}
+      reference_video: {type: array,   required: false, values: "video refs (combined cap 5 TOTAL with reference_image)"}
+      first_frame:     {type: string,  required: false, values: "single frame image URL"}
+      reference_voice: {type: string,  required: false, values: "voice-timbre reference audio (lip-sync)"}
+      resolution:      {type: enum,    required: false, default: "1080p", values: "720p,1080p", cost: "yes", note: "defaulted 720p (cost-minimal)"}
+      aspect_ratio:    {type: enum,    required: false, default: "16:9", values: "16:9,9:16,1:1,4:3,3:4"}
+      duration:        {type: integer, required: false, default: "5", values: "2-10s", cost: "yes", note: "max 10 here (vs 15 on t2v/i2v)"}
+      prompt_extend:   {type: boolean, required: false, default: "true", values: "true,false"}
+      watermark:       {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:            {type: integer, required: false, values: "0-2147483647"}
+      nsfw_checker:    {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan reference-to-video (3rd ref-to-video option after seedance/kling). SLUG TRAP: real id wan/2-7-r2v. VERIFY-AT-BUILD ARITY: reference_image + reference_video share a COMBINED cap of 5 TOTAL (the per-field reference_fields caps of 5 are upper bounds only; the API rejects >5 combined — the tool does NOT yet enforce the combined cap). duration max 10."
+    source: "https://docs.kie.ai/market/wan/2-7-r2v"
+
+  - canonical_id: wan-2.7-videoedit
+    gateway: kie
+    kie_model: "wan/2-7-videoedit"             # CONFIRMED (SLUG TRAP: 2-7-video-edit 404s; one word): docs.kie.ai/market/wan/2-7-videoedit
+    capability: video_generation
+    operations: [video_to_video]
+    category_tags: [v2v, i2v]
+    input_fields: [prompt, negative_prompt, video_url, reference_image, resolution, aspect_ratio, duration, audio_setting, prompt_extend, watermark, seed, nsfw_checker]
+    reference_fields: {}                        # video_url + reference_image are SCALARS here (reference_image is single, unlike r2v's array)
+    defaults:
+      resolution: "720p"                        # cost-minimal
+    require_one_of:
+      - [video_url]                             # source video required; prompt is NOT required here
+    param_specs:
+      prompt:          {type: string,  required: false, values: "edit description (NOT required for videoedit)"}
+      negative_prompt: {type: string,  required: false, values: "max 500 chars"}
+      video_url:       {type: string,  required: true,  values: "source video to edit (mp4/mov)"}
+      reference_image: {type: string,  required: false, values: "single reference image (jpeg/jpg/png/bmp/webp)"}
+      resolution:      {type: enum,    required: false, default: "1080p", values: "720p,1080p", cost: "yes", note: "defaulted 720p (cost-minimal)"}
+      aspect_ratio:    {type: enum,    required: false, default: "input-matched", values: "16:9,9:16,1:1,4:3,3:4"}
+      duration:        {type: integer, required: false, default: "0", values: "0 or 2-10s", cost: "yes", note: "0 = match input length"}
+      audio_setting:   {type: enum,    required: false, default: "auto", values: "auto,origin"}
+      prompt_extend:   {type: boolean, required: false, default: "true", values: "true,false"}
+      watermark:       {type: boolean, required: false, default: "false", values: "true,false"}
+      seed:            {type: integer, required: false, values: "0-2147483647"}
+      nsfw_checker:    {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Wan video-edit (2nd true v2v after Aleph). SLUG TRAP: real id wan/2-7-videoedit (one word). video_url required; prompt NOT required. reference_image is a SINGLE scalar here (vs r2v's array)."
+    source: "https://docs.kie.ai/market/wan/2-7-videoedit"
+
+  - canonical_id: topaz-video-upscale
+    gateway: kie
+    kie_model: "topaz/video-upscale"           # CONFIRMED: docs.kie.ai/market/topaz/video-upscale
+    capability: video_generation
+    operations: [upscale]
+    category_tags: [upscale, v2v]
+    input_fields: [video_url, upscale_factor]
+    reference_fields: {}                        # video_url is a single scalar source
+    require_one_of:
+      - [video_url]
+    param_specs:
+      video_url:      {type: string, required: true,  values: "source video (mp4/mov/mkv, <=50MB)"}
+      upscale_factor: {type: enum,   required: false, default: "2", values: "1,2,4", cost: verify, note: "OPTIONAL here (vs required on image variant); enum has NO '8'"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Topaz video upscale. VERIFY-AT-BUILD: result/output field path NOT documented (Get Task Details). upscale_factor optional, no '8'."
+    source: "https://docs.kie.ai/market/topaz/video-upscale"
+
+  - canonical_id: grok-image-to-video
+    gateway: kie
+    kie_model: "grok-imagine/image-to-video"   # CONFIRMED: docs.kie.ai/market/grok-imagine/image-to-video
+    capability: video_generation
+    operations: [image_to_video]
+    category_tags: [i2v]
+    input_fields: [prompt, image_urls, task_id, index, mode, duration, resolution, aspect_ratio, nsfw_checker]
+    reference_fields:
+      image_urls: 7
+    defaults:
+      resolution: "480p"                        # cost-minimal (also the API default)
+    require_one_of:
+      - [image_urls, task_id]                   # exactly one image source ...
+    mutually_exclusive:
+      - [image_urls, task_id]                   # ... (XOR; 'Do not use simultaneously')
+    param_specs:
+      prompt:       {type: string,  required: false, values: "English, max 5000 chars"}
+      image_urls:   {type: array,   required: false, values: "reference images, up to 7; XOR with task_id"}
+      task_id:      {type: string,  required: false, values: "prior Grok t2i task id (pair with index); XOR with image_urls"}
+      index:        {type: integer, required: false, default: "0", values: "0-5 (selects image from task_id)"}
+      mode:         {type: enum,    required: false, default: "normal", values: "fun,normal,spicy"}
+      duration:     {type: enum,    required: false, values: "6-30s", cost: "yes"}
+      resolution:   {type: enum,    required: false, default: "480p", values: "480p,720p", cost: "yes", note: "defaulted 480p (cost-minimal)"}
+      aspect_ratio: {type: enum,    required: false, default: "16:9", values: "2:3,3:2,1:1,16:9,9:16", cost: verify}
+      nsfw_checker: {type: boolean, required: false, default: "false", values: "true,false"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Grok i2v: image_urls (<=7) XOR task_id — exactly one (require_one_of + mutually_exclusive enforce it). Cost levers: duration (6-30), resolution (def 480p)."
+    source: "https://docs.kie.ai/market/grok-imagine/image-to-video"
+
+  - canonical_id: grok-video-upscale
+    gateway: kie
+    kie_model: "grok-imagine/upscale"          # CONFIRMED: docs.kie.ai/market/grok-imagine/upscale
+    capability: video_generation
+    operations: [upscale]
+    category_tags: [upscale, v2v]
+    input_fields: [task_id]
+    reference_fields: {}
+    require_one_of:
+      - [task_id]
+    param_specs:
+      task_id: {type: string, required: true, values: "prior SUCCESSFUL kie video task id — kie-generated videos ONLY (external not supported)"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Grok VIDEO upscale (NOT image). Input is a task_id of a prior kie video; cannot upscale external videos; no reference-image field."
+    source: "https://docs.kie.ai/market/grok-imagine/upscale"
+
+  - canonical_id: kling-3.0-motion-control
+    gateway: kie
+    kie_model: "kling-3.0/motion-control"      # CONFIRMED: docs.kie.ai/market/kling/motion-control-v3
+    capability: video_generation
+    operations: [motion_control]
+    category_tags: [motion-control, v2v]
+    input_fields: [prompt, input_urls, video_urls, mode, character_orientation, background_source]
+    reference_fields:
+      input_urls: 1                             # character image (max-arity-1 not literally printed on v3 page — verify)
+      video_urls: 1                             # driving motion video
+    defaults:
+      mode: "std"                               # cost-minimal (std=720p; pro=1080p). VERIFY-AT-BUILD: API default not printed on page
+    require_one_of:
+      - [input_urls]
+      - [video_urls]
+    param_specs:
+      prompt:                {type: string, required: false, values: "0-2500 chars (optional)"}
+      input_urls:            {type: array,  required: true,  values: "character image, max 1 (>340px, jpg/png; aspect 2:5-5:2)", note: "v3 min is >340px (NOT 2.6's 300px)"}
+      video_urls:            {type: array,  required: true,  values: "driving motion video, max 1 (mp4/mov/mkv, 3-30s)"}
+      mode:                  {type: enum,   required: false, default: "std (VERIFY: not printed)", values: "std,pro", cost: "yes", note: "DIFFERS from 2.6 (720p/1080p enum). Default not stated -> defaulted std (cost-minimal); verify"}
+      character_orientation: {type: enum,   required: false, default: "video", values: "video,image", note: "Optional in 3.0 (was Required in 2.6)"}
+      background_source:     {type: enum,   required: false, default: "input_video", values: "input_video,input_image", note: "NEW in 3.0 (absent in 2.6)"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured. Kling 3.0 motion-control (latest). VERIFY-AT-BUILD: (1) mode default not printed (defaulted std); (2) callBackUrl is in the OpenAPI top-level required array but treated optional (kie callback-or-poll convention) — confirm on first paid run; (3) input image min >340px (not 2.6's 300px); (4) input_urls/video_urls max-arity-1 not literally printed on v3 page. Deltas vs 2.6: mode std/pro (was 720p/1080p), background_source added, character_orientation now optional."
+    source: "https://docs.kie.ai/market/kling/motion-control-v3"
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Animate a static character (input_urls) from a driving video (video_urls)."

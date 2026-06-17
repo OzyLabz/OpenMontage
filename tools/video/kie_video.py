@@ -123,8 +123,27 @@ class KieVideo(BaseTool):
             # --- Runway Aleph dedicated-endpoint params (endpoint:aleph; v2v) ---
             "videoUrl": {"type": "string", "description": "Aleph: source video URL for v2v edit/restyle/relight."},
             "referenceImage": {"type": "string", "description": "Aleph: reference image URL to influence style/content."},
-            "seed": {"type": "integer", "description": "Aleph: random seed for reproducible generation."},
+            "seed": {"type": "integer", "description": "Aleph / Wan: random seed for reproducible generation."},
             "uploadCn": {"type": "boolean", "description": "Aleph: storage region (false=S3/R2, true=Alibaba OSS)."},
+            # --- Phase 3 video params (forwarded per each model's input_fields) ---
+            "negative_prompt": {"type": "string", "description": "Wan: things to avoid (<=500 chars)."},
+            "audio_url": {"type": "string", "description": "Wan t2v: audio input URL (full-modality)."},
+            "prompt_extend": {"type": "boolean", "description": "Wan: prompt rewriting (default true)."},
+            "first_clip_url": {"type": "string", "description": "Wan i2v: source clip for video-continuation mode."},
+            "driving_audio_url": {"type": "string", "description": "Wan i2v: audio input (full-modality)."},
+            "reference_image": {"type": ["array", "string"], "items": {"type": "string"}, "description": "Wan r2v: image refs (array, combined <=5 with reference_video) / Wan videoedit: single reference image."},
+            "reference_video": {"type": "array", "items": {"type": "string"}, "description": "Wan r2v: video refs (combined <=5 with reference_image)."},
+            "first_frame": {"type": "string", "description": "Wan r2v: single frame image URL."},
+            "reference_voice": {"type": "string", "description": "Wan r2v: voice-timbre reference audio (lip-sync)."},
+            "video_url": {"type": "string", "description": "Wan videoedit / Topaz video upscale: source video URL (snake_case)."},
+            "audio_setting": {"type": "string", "enum": ["auto", "origin"], "description": "Wan videoedit: audio handling."},
+            "upscale_factor": {"type": "string", "enum": ["1", "2", "4"], "description": "Topaz video upscale factor (video: 1/2/4, no 8)."},
+            "task_id": {"type": "string", "description": "Grok i2v (XOR image_urls) / Grok upscale: prior kie task id."},
+            "index": {"type": "integer", "description": "Grok i2v: image index 0-5 from task_id."},
+            "input_urls": {"type": "array", "items": {"type": "string"}, "description": "Kling motion-control: character image (<=1)."},
+            "video_urls": {"type": "array", "items": {"type": "string"}, "description": "Kling motion-control: driving motion video (<=1)."},
+            "character_orientation": {"type": "string", "enum": ["video", "image"], "description": "Kling motion-control: orientation reference source."},
+            "background_source": {"type": "string", "enum": ["input_video", "input_image"], "description": "Kling 3.0 motion-control: background source (NEW in 3.0)."},
             # --- Reserved for persona character-lock (optional; unused on text_to_video) ---
             "first_frame_url": {"type": "string"},
             "last_frame_url": {"type": "string"},
@@ -236,6 +255,23 @@ class KieVideo(BaseTool):
         for key, val in (row.get("defaults") or {}).items():
             if key in allowed and key not in ref_caps:
                 model_input.setdefault(key, val)
+
+        # Required-input validation (clear error instead of a confusing API 422):
+        # require_one_of -> each group needs >=1 field present; mutually_exclusive
+        # -> each group allows <=1. No-op for rows that declare neither.
+        for group in (row.get("require_one_of") or []):
+            if not any(g in model_input for g in group):
+                return ToolResult(
+                    success=False,
+                    error=f"{kie_model} requires at least one of: {', '.join(group)}",
+                )
+        for group in (row.get("mutually_exclusive") or []):
+            present = [g for g in group if g in model_input]
+            if len(present) > 1:
+                return ToolResult(
+                    success=False,
+                    error=f"{kie_model}: {' and '.join(present)} are mutually exclusive — provide only one",
+                )
 
         out_path = inputs.get(
             "output_path", f"kie_{row['canonical_id'].replace('.', '_')}"

@@ -35,6 +35,16 @@
             "description": "wire field name -> caller input key it reads from, for params whose API name collides with a reserved tool input (e.g. Veo's body `model` tier reads from `veo_model`, since the tool's `model` input selects the row). Absent/empty = no aliasing (default).",
             "additionalProperties": { "type": "string" }
           },
+          "require_one_of": {
+            "type": "array",
+            "description": "Each inner group requires AT LEAST ONE of its wire fields present after the body is built — the tool returns a clear error instead of a confusing API 422. A singleton group [[x]] means x is required. e.g. Wan i2v [[first_frame_url, last_frame_url, first_clip_url]]; GPT-edit [[input_urls]].",
+            "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          },
+          "mutually_exclusive": {
+            "type": "array",
+            "description": "Each inner group allows AT MOST ONE of its wire fields present (e.g. Grok i2v image_urls XOR task_id). Combine with require_one_of on the same group for exactly-one semantics.",
+            "items": { "type": "array", "items": { "type": "string" }, "minItems": 2 }
+          },
           "input_fields": {
             "type": "array",
             "items": { "type": "string" },
