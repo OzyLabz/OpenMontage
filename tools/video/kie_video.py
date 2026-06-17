@@ -120,6 +120,11 @@ class KieVideo(BaseTool):
             "quality": {"type": "string", "enum": ["720p", "1080p"], "description": "Runway: 720p | 1080p (1080p blocks 10s)."},
             "waterMark": {"type": "string", "description": "Runway/Aleph: watermark text."},
             "callBackUrl": {"type": "string", "description": "Runway/Aleph: optional async callback (we poll synchronously)."},
+            # --- Runway Aleph dedicated-endpoint params (endpoint:aleph; v2v) ---
+            "videoUrl": {"type": "string", "description": "Aleph: source video URL for v2v edit/restyle/relight."},
+            "referenceImage": {"type": "string", "description": "Aleph: reference image URL to influence style/content."},
+            "seed": {"type": "integer", "description": "Aleph: random seed for reproducible generation."},
+            "uploadCn": {"type": "boolean", "description": "Aleph: storage region (false=S3/R2, true=Alibaba OSS)."},
             # --- Reserved for persona character-lock (optional; unused on text_to_video) ---
             "first_frame_url": {"type": "string"},
             "last_frame_url": {"type": "string"},

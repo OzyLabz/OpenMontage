@@ -239,15 +239,16 @@ _DEDICATED: dict[str, dict[str, Any]] = {
         "result_field": "videoInfo.videoUrl",  # CONFIRMED live (Gen-4 Turbo i2v run)
     },
     "aleph": {
-        # VERIFY-AT-BUILD: poll path + result field inferred from Gen-4 Turbo
-        # (the Aleph docs page did not confirm them). Resolve before Aleph ships.
+        # Doc-confirmed via docs.kie.ai/runway-api/get-aleph-video-details (example
+        # response). Aleph mirrors Veo's record-info / successFlag shape, NOT Runway's.
         "submit": "/api/v1/aleph/generate",
-        "poll": "/api/v1/aleph/record-detail",
-        "status_field": "state",
-        "status_kind": "str",
-        "success": {"success"},
-        "fail": {"fail"},
-        "result_field": "videoInfo.videoUrl",
+        "poll": "/api/v1/aleph/record-info",
+        "status_field": "successFlag",       # int: 1=success; 0="failed OR in progress" (ambiguous)
+        "status_kind": "int",
+        "success": {1},
+        "fail": set(),                        # no distinct fail value (0 is fail-OR-pending) ...
+        "fail_on_error": True,                # ... so detect failure via errorMessage/failMsg instead
+        "result_field": "response.resultVideoUrl",  # singular nested string
     },
 }
 
@@ -358,6 +359,16 @@ def poll_dedicated(
             raise KieError(
                 f"{endpoint} task {task_id} failed ({sf}={status}): "
                 f"{record.get('failCode')} {record.get('failMsg')}".strip()
+            )
+        # Endpoints with an ambiguous pending/fail status (Aleph: 0 = fail OR in
+        # progress) signal real failure only through an error field — treat a
+        # truthy errorMessage/failMsg as terminal. No-op for Veo/Runway (success
+        # and pending records carry empty/None error fields).
+        if spec.get("fail_on_error") and (record.get("errorMessage") or record.get("failMsg")):
+            raise KieError(
+                f"{endpoint} task {task_id} failed: "
+                f"{record.get('errorCode') or record.get('failCode')} "
+                f"{record.get('errorMessage') or record.get('failMsg')}".strip()
             )
         time.sleep(min(cur, max(0.0, deadline - time.time())))
         cur = min(cur * 1.2, 30.0)

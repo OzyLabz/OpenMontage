@@ -288,6 +288,32 @@ models:
     est_cost_credits: 12       # MEASURED (i2v / 720p / 5s) via /chat/credit delta
     cost_note: "12 credits MEASURED for i2v/720p/5s (wall-clock ~164s, NO audio stream — Gen-4 Turbo is silent). Flags resolved live: callBackUrl NOT required for sync polling; result is at videoInfo.videoUrl (state=success). aspectRatio is ignored for i2v — output adopts the source image's ratio (a 512x512 source yielded 960x960). Cost driven by quality (720p/1080p) and duration (5/10)."
     source: "https://docs.kie.ai/runway-api/generate-ai-video"
+
+  - canonical_id: runway-aleph
+    gateway: kie
+    kie_model: "runway-aleph"                  # human label only — dedicated rows route by `endpoint`
+    endpoint: aleph                             # DEDICATED: POST /api/v1/aleph/generate -> GET /api/v1/aleph/record-info (successFlag int / response.resultVideoUrl) — doc-confirmed shape
+    capability: video_generation
+    operations: [video_to_video]
+    category_tags: [v2v]
+    input_fields: [prompt, videoUrl, aspectRatio, seed, referenceImage, waterMark, uploadCn, callBackUrl]
+    reference_fields: {}                        # videoUrl + referenceImage are single scalars (not ref arrays)
+    field_aliases:
+      aspectRatio: aspect_ratio                 # wire camelCase; caller passes aspect_ratio
+    defaults: {}                                # no resolution/duration/quality knobs — output follows the source video; nothing cost-minimal to force
+    param_specs:
+      prompt:         {type: string,  required: true,  values: "guides the v2v edit/restyle/relight", cost: "yes"}
+      videoUrl:       {type: string,  required: true,  values: "source video URL for v2v"}
+      aspectRatio:    {type: enum,    required: false, values: "16:9,9:16,4:3,3:4,1:1,21:9", note: "caller passes aspect_ratio (aliased); output may follow source"}
+      seed:           {type: integer, required: false, note: "reproducible generation"}
+      referenceImage: {type: string,  required: false, values: "reference image URL to influence style/content"}
+      waterMark:      {type: string,  required: false, values: "empty = no watermark"}
+      uploadCn:       {type: boolean, required: false, default: "false", note: "false=S3/R2 storage, true=Alibaba OSS"}
+      callBackUrl:    {type: string,  required: false, note: "optional — sync polling works without it (per Gen-4 finding)"}
+    est_cost_usd: null
+    est_cost_credits: null
+    cost_note: "TBD until measured (dedicated endpoint, not yet paid-tested). Doc-confirmed shape: poll /api/v1/aleph/record-info, successFlag int, result at response.resultVideoUrl. VERIFY-AT-BUILD on first live run: successFlag=0 means 'failed OR in progress' (no distinct fail value) — fail-detection falls back to errorMessage/errorCode; confirm real fail behavior. No duration/quality params — cost likely scales with source-video length."
+    source: "https://docs.kie.ai/runway-api/generate-aleph-video"
     est_cost_usd: null
     est_cost_credits: null
     cost_note: "TBD until measured. Animate a static character (input_urls) from a driving video (video_urls)."
