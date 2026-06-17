@@ -20,4 +20,5 @@ style_prompt: >
   confident neutral tone, concise on-screen stat callouts.
 niche: artificial-intelligence-news
 visuals:
-  video_provider: kie                 # OFF-path bias: route AI video assets through the kie gateway (image_provider added once the image model row lands)
+  video_provider: kie                 # OFF-path bias: route AI video assets through the kie gateway
+  image_provider: kie                 # OFF-path bias: route AI image stills through the kie gateway

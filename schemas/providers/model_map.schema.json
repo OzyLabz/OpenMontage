@@ -37,8 +37,13 @@
           },
           "est_cost_usd": {
             "type": ["number", "null"],
-            "description": "Best-effort per-run cost. null = credit-metered, confirm via /chat/credit delta + model doc."
+            "description": "Best-effort per-run USD. null = credit-metered (USD varies by credit-package price)."
           },
+          "est_cost_credits": {
+            "type": ["number", "null"],
+            "description": "Measured kie credit cost per run (empirical, from /chat/credit delta). null = not yet measured."
+          },
+          "cost_note": { "type": "string", "description": "Free-text note on cost provenance (e.g. measured vs doc figure)." },
           "source": { "type": "string", "description": "docs.kie.ai page the row was confirmed from." }
         },
         "additionalProperties": false
