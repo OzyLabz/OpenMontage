@@ -667,6 +667,57 @@ class VideoCompose(BaseTool):
             )
         return comp
 
+    @classmethod
+    def _resolve_remotion_asset(
+        cls, value: str, public_dir: Path, staged: list[Path], field: str
+    ) -> str:
+        """Make an asset reference loadable by Remotion's headless renderer.
+
+        Headless Chromium refuses file:// URLs ("Not allowed to load local
+        resource"), so local files must be served from remotion-composer/public/.
+          - http(s):// URLs are returned unchanged.
+          - A local path (or file:// URI) to an EXISTING file is copied into
+            public/staged_assets/ and returned as a public-relative URL Remotion
+            can load.
+          - A local path that does NOT exist raises ValueError with an actionable
+            message (instead of the cryptic Chromium error mid-render).
+        Empty / non-string values pass through unchanged.
+        """
+        import hashlib
+        import re
+        import shutil as _shutil
+
+        if not value or not isinstance(value, str):
+            return value
+        if value.startswith(("http://", "https://")):
+            return value  # remote URLs load fine in headless Chromium
+
+        # Normalise a file:// URI to a local path (handle Windows drive letters).
+        local = value
+        if local.startswith("file://"):
+            local = local[7:]
+            if re.match(r"^/[A-Za-z]:", local):  # file:///C:/... -> C:/...
+                local = local[1:]
+
+        p = Path(local)
+        if not p.exists():
+            raise ValueError(
+                f"Remotion cannot load local asset for cut.{field}: {value!r}. "
+                "Headless Chromium blocks file:// and bare local paths — provide an "
+                "http(s) URL, or an existing local file (it will be staged into "
+                "remotion-composer/public/). The given path does not exist."
+            )
+
+        dest_dir = public_dir / "staged_assets"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha1(str(p.resolve()).encode("utf-8")).hexdigest()[:10]
+        dest = dest_dir / f"{digest}_{p.name}"
+        if not dest.exists():
+            _shutil.copy2(p, dest)
+        staged.append(dest)
+        # public-relative URL — Remotion serves public/ at the site root.
+        return f"staged_assets/{dest.name}"
+
     @staticmethod
     def _build_theme_from_playbook(
         playbook_name: str | None,
@@ -1306,15 +1357,24 @@ class VideoCompose(BaseTool):
         # Deep-copy props so we don't mutate the original
         props = json.loads(json.dumps(composition_data))
 
-        # Convert absolute file paths to file:// URIs for Remotion's
-        # Img and OffthreadVideo components
+        # Remotion's headless Chromium CANNOT load file:// / bare local paths
+        # ("Not allowed to load local resource"). Stage any local asset a cut
+        # references (source + backgroundImage) into the composer's public/ dir
+        # and rewrite it to a public-relative URL Remotion can load; http(s) URLs
+        # pass through unchanged; a missing local file raises a clear error.
+        composer_dir = Path(__file__).resolve().parent.parent.parent / "remotion-composer"
+        if not composer_dir.exists():
+            return ToolResult(
+                success=False, error=f"Remotion composer project not found at {composer_dir}"
+            )
+        public_dir = composer_dir / "public"
+        staged_assets: list[Path] = []
         for cut in props.get("cuts", []):
-            source = cut.get("source", "")
-            if source and not source.startswith(("http://", "https://", "file://")):
-                resolved = Path(source).resolve()
-                if resolved.exists():
-                    posix = resolved.as_posix()
-                    cut["source"] = f"file:///{posix}" if not posix.startswith("/") else f"file://{posix}"
+            for _field in ("source", "backgroundImage"):
+                if cut.get(_field):
+                    cut[_field] = self._resolve_remotion_asset(
+                        cut[_field], public_dir, staged_assets, _field
+                    )
 
         # Build a custom themeConfig from the playbook's actual colors.
         # This ensures every video gets a unique visual identity derived
@@ -1334,13 +1394,7 @@ class VideoCompose(BaseTool):
         with open(props_path, "w", encoding="utf-8") as f:
             json.dump(props, f)
 
-        # remotion-composer lives at project root
-        composer_dir = Path(__file__).resolve().parent.parent.parent / "remotion-composer"
-        if not composer_dir.exists():
-            return ToolResult(
-                success=False,
-                error=f"Remotion composer project not found at {composer_dir}",
-            )
+        # composer_dir + public/ asset staging resolved above.
 
         # Route to the correct Remotion composition based on renderer_family.
         # This prevents all pipelines from collapsing into the Explainer visual grammar.
@@ -1376,6 +1430,11 @@ class VideoCompose(BaseTool):
         finally:
             if props_path.exists():
                 props_path.unlink()
+            for _f in staged_assets:
+                try:
+                    _f.unlink()
+                except OSError:
+                    pass
 
         if not output_path.exists():
             return ToolResult(
